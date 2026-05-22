@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "scheme": "pythoma",
+    "scheme": "com.pythoma.app",
     "backgroundColor": "#fffaf3",
     "splash": {
       "backgroundColor": "#20483a",
@@ -14,7 +14,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "pythoma",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.pythoma.app",
@@ -27,7 +30,13 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-web-browser"
-    ]
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f88ece27-60ea-4cc4-af0d-6cc1a90b2ccc"
+      }
+    }
   }
 }

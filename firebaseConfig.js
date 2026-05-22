@@ -1,13 +1,26 @@
-import { initializeApp } from "firebase/app";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getApp, getApps, initializeApp } from "firebase/app";
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   getAuth,
+  getReactNativePersistence,
+  initializeAuth,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
 } from "firebase/auth";
+import {
+  addDoc,
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+} from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyD48TI_Ugg1JxAS8gpZHBrw83deMZcS9WQ",
@@ -40,8 +53,20 @@ export const firebaseConfigStatus = {
   projectId: firebaseConfig.projectId,
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+function createAuth() {
+  try {
+    return initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch (error) {
+    return getAuth(app);
+  }
+}
+
+export const auth = createAuth();
+export const db = getFirestore(app);
 
 export async function loginWithEmail(email, password) {
   return signInWithEmailAndPassword(auth, email, password);
@@ -62,4 +87,34 @@ export async function loginWithGoogleIdToken(idToken) {
 
 export function logout() {
   return signOut(auth);
+}
+
+export function subscribeToCommunityMessages(onMessages, onError) {
+  const messagesQuery = query(collection(db, "communityMessages"), orderBy("createdAt", "desc"), limit(50));
+  return onSnapshot(
+    messagesQuery,
+    (snapshot) => {
+      const messages = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .reverse();
+      onMessages(messages);
+    },
+    onError,
+  );
+}
+
+export function sendCommunityMessage({ text, user }) {
+  const cleanText = text.trim();
+  if (!cleanText) return Promise.resolve();
+
+  return addDoc(collection(db, "communityMessages"), {
+    text: cleanText,
+    name: user?.name || "Ratnica",
+    email: user?.email || "",
+    uid: auth.currentUser?.uid || "",
+    createdAt: serverTimestamp(),
+  });
 }

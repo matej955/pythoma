@@ -5,6 +5,7 @@ import {
   ImageBackground,
   Modal,
   Pressable,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -16,6 +17,7 @@ import {
 import Svg, { Circle, Ellipse, G, Line, Path } from "react-native-svg";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
+import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from "@react-native-google-signin/google-signin";
 import {
   googleClientIds,
   firebaseConfigStatus,
@@ -24,22 +26,30 @@ import {
   loginWithGoogleIdToken,
   logout,
   registerWithEmail,
+  sendCommunityMessage,
+  subscribeToCommunityMessages,
 } from "./firebaseConfig";
 
 WebBrowser.maybeCompleteAuthSession();
 
+GoogleSignin.configure({
+  webClientId: googleClientIds.webClientId,
+  iosClientId: googleClientIds.iosClientId || undefined,
+  offlineAccess: false,
+});
+
 const colors = {
-  paper: "#f4ead9",
-  card: "#f8f0e3",
-  cardDeep: "#efe2cd",
+  paper: "#efe3d0",
+  card: "#fbf3e7",
+  cardDeep: "#eadcc5",
   forest: "#243719",
   olive: "#55612d",
-  moss: "#7d8157",
-  sage: "#ddd2bb",
-  tan: "#cbb589",
+  moss: "#73794b",
+  sage: "#d8c7aa",
+  tan: "#b99d69",
   ink: "#241f17",
-  muted: "#766f61",
-  line: "rgba(36, 55, 25, 0.16)",
+  muted: "#81735f",
+  line: "rgba(36, 55, 25, 0.18)",
   white: "#fffaf0",
   danger: "#9c493d",
 };
@@ -126,6 +136,19 @@ const navItems = [
   { key: "profile", label: "Profil", icon: "P" },
 ];
 
+function profileNameFromEmail(email) {
+  if (!email) return "Ratnica";
+  const localPart = email.split("@")[0] || "Ratnica";
+  const words = localPart.split(/[._-]+/).filter(Boolean);
+  return words.map((word) => word.slice(0, 1).toUpperCase() + word.slice(1)).join(" ") || "Ratnica";
+}
+
+function profileNameFromUser({ displayName, email, fallback }) {
+  const cleanName = displayName?.trim();
+  if (cleanName) return cleanName;
+  return fallback?.trim() || profileNameFromEmail(email);
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [authMode, setAuthMode] = useState("welcome");
@@ -135,19 +158,24 @@ export default function App() {
   const [trainingTab, setTrainingTab] = useState("Svi programi");
   const [communityTab, setCommunityTab] = useState("Chat");
   const [message, setMessage] = useState("");
-  const [profile, setProfile] = useState({ name: "Ratnica.", goal: "Disciplina. Fokus. Sloboda.", age: "", level: "Pocetnica" });
+  const [profile, setProfile] = useState({ name: "Ratnica", goal: "Disciplina. Fokus. Sloboda.", email: "", age: "", level: "Pocetnica" });
 
   const googleConfigured = Object.values(googleClientIds).some(Boolean);
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest(googleClientIds);
 
   useEffect(() => {
     async function finishGoogleLogin() {
+      if (Platform.OS !== "web") return;
       if (response?.type !== "success") return;
       const idToken = response.params?.id_token;
       if (!idToken || !hasFirebaseConfig) return;
       try {
         const credential = await loginWithGoogleIdToken(idToken);
-        setSession({ type: "firebase", name: credential.user.displayName || "Ratnica", email: credential.user.email });
+        setSession({
+          type: "firebase",
+          name: profileNameFromUser({ displayName: credential.user.displayName, email: credential.user.email }),
+          email: credential.user.email,
+        });
       } catch (error) {
         Alert.alert("Google sign in", error.message);
       }
@@ -155,9 +183,61 @@ export default function App() {
     finishGoogleLogin();
   }, [response]);
 
+  async function handleGoogleLogin() {
+    if (!hasFirebaseConfig || !googleConfigured) {
+      Alert.alert("Firebase setup needed", "Paste Firebase keys and Google client IDs in firebaseConfig.js first.");
+      return;
+    }
+
+    if (Platform.OS === "web") {
+      promptAsync();
+      return;
+    }
+
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      if (!isSuccessResponse(response)) return;
+
+      const idToken = response.data.idToken || (await GoogleSignin.getTokens()).idToken;
+      if (!idToken) {
+        throw new Error("Google did not return an ID token. Check the Web client ID in .env.");
+      }
+
+      const credential = await loginWithGoogleIdToken(idToken);
+      setSession({
+        type: "firebase",
+        name: profileNameFromUser({ displayName: credential.user.displayName, email: credential.user.email }),
+        email: credential.user.email,
+      });
+    } catch (error) {
+      if (isErrorWithCode(error)) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
+        if (error.code === statusCodes.IN_PROGRESS) return;
+        if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          Alert.alert("Google sign in", "Google Play Services are not available or need an update.");
+          return;
+        }
+      }
+      Alert.alert("Google sign in", error.message);
+    }
+  }
+
   function enterAsGuest() {
     setSession({ type: "guest", name: profile.name, email: "" });
   }
+
+  useEffect(() => {
+    if (!session) return;
+    setProfile((current) => {
+      const shouldUseSessionName = !current.name || current.name === "Ratnica";
+      return {
+        ...current,
+        name: shouldUseSessionName ? session.name || profileNameFromEmail(session.email) : current.name,
+        email: session.email || current.email,
+      };
+    });
+  }, [session]);
 
   function navigate(next) {
     setScreen(next);
@@ -194,14 +274,8 @@ export default function App() {
         setMode={setAuthMode}
         onGuest={enterAsGuest}
         onAuth={setSession}
-        onGoogle={() => {
-          if (!hasFirebaseConfig || !googleConfigured) {
-            Alert.alert("Firebase setup needed", "Paste Firebase keys and Google client IDs in firebaseConfig.js first.");
-            return;
-          }
-          promptAsync();
-        }}
-        request={request}
+        onGoogle={handleGoogleLogin}
+        request={Platform.OS === "web" ? request : googleConfigured}
       />
     );
   }
@@ -216,7 +290,15 @@ export default function App() {
             <TrainingScreen tab={trainingTab} setTab={setTrainingTab} goBack={goBack} openMenu={() => setDrawerOpen(true)} />
           )}
           {screen === "community" && (
-            <CommunityScreen tab={communityTab} setTab={setCommunityTab} message={message} setMessage={setMessage} goBack={goBack} />
+            <CommunityScreen
+              tab={communityTab}
+              setTab={setCommunityTab}
+              message={message}
+              setMessage={setMessage}
+              goBack={goBack}
+              session={session}
+              profile={profile}
+            />
           )}
           {screen === "wellness" && <WellnessScreen goBack={goBack} />}
           {screen === "profile" && <ProfileScreen profile={profile} setProfile={setProfile} goBack={goBack} onLogout={handleLogout} />}
@@ -240,13 +322,17 @@ function AuthScreen({ mode, setMode, onGuest, onAuth, onGoogle, request }) {
       return;
     }
     if (!hasFirebaseConfig) {
-      onAuth({ type: "demo", name: name || "Ratnica", email });
+      onAuth({ type: "demo", name: profileNameFromUser({ email, fallback: name }), email });
       return;
     }
     try {
       const credential =
         mode === "register" ? await registerWithEmail({ email, password, name }) : await loginWithEmail(email, password);
-      onAuth({ type: "firebase", name: credential.user.displayName || name || "Ratnica", email: credential.user.email });
+      onAuth({
+        type: "firebase",
+        name: profileNameFromUser({ displayName: credential.user.displayName, email: credential.user.email, fallback: name }),
+        email: credential.user.email,
+      });
     } catch (error) {
       Alert.alert(
         "Firebase auth",
@@ -313,7 +399,9 @@ function HomeScreen({ go, openMenu, profile }) {
           <Text style={styles.tiny}>DNEVNI FOKUS</Text>
           <Text style={styles.focusText}>Disciplina je most izmedu ciljeva i ostvarenja.</Text>
         </View>
-        <Text style={styles.leafMark}>L</Text>
+        <View style={styles.leafMark}>
+          <LeafLine />
+        </View>
       </View>
       <Text style={styles.sectionLabel}>DANAS TE CEKA</Text>
       <Task title="Trening - Glute Focus" subtitle="45 min" icon="1" />
@@ -322,7 +410,7 @@ function HomeScreen({ go, openMenu, profile }) {
       <View style={styles.progressCard}>
         <View style={styles.rowBetween}>
           <Text style={styles.tiny}>PROGRESS TRACKER</Text>
-          <Text style={styles.leafSmall}>L</Text>
+          <LeafLine small />
         </View>
         <View style={styles.rowBetween}>
           <Text style={styles.body}>Tjedan 4</Text>
@@ -363,46 +451,130 @@ function TrainingScreen({ tab, setTab, goBack, openMenu }) {
   );
 }
 
-function CommunityScreen({ tab, setTab, message, setMessage, goBack }) {
-  const posts = tab === "Chat" ? communityPosts : communityPosts.filter((post) => post.tab === tab);
+function formatMessageTime(createdAt) {
+  const date = createdAt?.toDate?.();
+  if (!date) return "sada";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function CommunityScreen({ tab, setTab, message, setMessage, goBack, session, profile }) {
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(true);
+  const [chatError, setChatError] = useState("");
+  const [sending, setSending] = useState(false);
+  const posts = communityPosts.filter((post) => post.tab === tab);
+  const isChat = tab === "Chat";
+
+  useEffect(() => {
+    if (!isChat) return undefined;
+
+    setChatLoading(true);
+    const unsubscribe = subscribeToCommunityMessages(
+      (messages) => {
+        setChatMessages(messages);
+        setChatError("");
+        setChatLoading(false);
+      },
+      (error) => {
+        setChatError(error.message);
+        setChatLoading(false);
+      },
+    );
+
+    return unsubscribe;
+  }, [isChat]);
+
+  async function sendMessage() {
+    const cleanMessage = message.trim();
+    if (!cleanMessage || sending) return;
+    if (session?.type !== "firebase") {
+      Alert.alert("Chat", "Prijavi se s emailom ili Google racunom za slanje poruka.");
+      return;
+    }
+
+    setSending(true);
+    try {
+      await sendCommunityMessage({
+        text: cleanMessage,
+        user: {
+          name: profile.name || session.name,
+          email: session.email,
+        },
+      });
+      setMessage("");
+    } catch (error) {
+      Alert.alert("Chat", error.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <>
       <ScreenHeader title="COMMUNITY" onBack={goBack} />
       <Tabs tabs={["Chat", "Grupe", "Aktivnosti", "Izazovi"]} active={tab} setActive={setTab} />
       <View style={styles.communityList}>
-        {(posts.length ? posts : communityPosts).map((post) => (
-          <View key={post.name} style={styles.postCard}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{post.name.slice(0, 1)}</Text>
-            </View>
-            <View style={styles.postBody}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.postName}>{post.name}</Text>
-                <Text style={styles.postTime}>{post.time}</Text>
+        {isChat ? (
+          <>
+            {chatLoading && <Text style={styles.chatStatus}>Ucitavam chat...</Text>}
+            {!!chatError && <Text style={styles.chatStatus}>Chat nije dostupan: {chatError}</Text>}
+            {!chatLoading && !chatError && chatMessages.length === 0 && (
+              <Text style={styles.chatStatus}>Budi prva koja salje poruku.</Text>
+            )}
+            {chatMessages.map((post) => (
+              <View key={post.id} style={styles.postCard}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{(post.name || "R").slice(0, 1)}</Text>
+                </View>
+                <View style={styles.postBody}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.postName}>{post.name || "Ratnica"}</Text>
+                    <Text style={styles.postTime}>{formatMessageTime(post.createdAt)}</Text>
+                  </View>
+                  <Text style={styles.postText}>{post.text}</Text>
+                </View>
               </View>
-              <Text style={styles.postText}>{post.text}</Text>
-              <Text style={styles.reactions}>love {post.likes}    chat {post.comments}</Text>
-            </View>
-          </View>
-        ))}
-        <ImageBackground source={{ uri: image.group }} style={styles.communityPhoto} imageStyle={styles.communityPhotoImage}>
-          <View style={styles.photoShade} />
-        </ImageBackground>
-        <Text style={styles.caption}>Tko ide na vecernji challenge?</Text>
-        <Text style={styles.reactions}>love 12    chat 2</Text>
+            ))}
+          </>
+        ) : (
+          <>
+            {(posts.length ? posts : communityPosts).map((post) => (
+              <View key={post.name} style={styles.postCard}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{post.name.slice(0, 1)}</Text>
+                </View>
+                <View style={styles.postBody}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.postName}>{post.name}</Text>
+                    <Text style={styles.postTime}>{post.time}</Text>
+                  </View>
+                  <Text style={styles.postText}>{post.text}</Text>
+                  <Text style={styles.reactions}>love {post.likes}    chat {post.comments}</Text>
+                </View>
+              </View>
+            ))}
+            <ImageBackground source={{ uri: image.group }} style={styles.communityPhoto} imageStyle={styles.communityPhotoImage}>
+              <View style={styles.photoShade} />
+            </ImageBackground>
+            <Text style={styles.caption}>Tko ide na vecernji challenge?</Text>
+            <Text style={styles.reactions}>love 12    chat 2</Text>
+          </>
+        )}
       </View>
-      <View style={styles.messageBar}>
-        <TextInput
-          value={message}
-          onChangeText={setMessage}
-          placeholder="Napisi poruku..."
-          placeholderTextColor={colors.muted}
-          style={styles.messageInput}
-        />
-        <Pressable style={styles.sendCircle} onPress={() => setMessage("")}>
-          <Text style={styles.sendText}>Go</Text>
-        </Pressable>
-      </View>
+      {isChat && (
+        <View style={styles.messageBar}>
+          <TextInput
+            value={message}
+            onChangeText={setMessage}
+            placeholder="Napisi poruku..."
+            placeholderTextColor={colors.muted}
+            style={styles.messageInput}
+          />
+          <Pressable style={[styles.sendCircle, sending && styles.disabledButton]} onPress={sendMessage} disabled={sending}>
+            <Text style={styles.sendText}>{sending ? "..." : "Go"}</Text>
+          </Pressable>
+        </View>
+      )}
     </>
   );
 }
@@ -457,6 +629,11 @@ function PotionSection({ title, items }) {
 function ProfileScreen({ profile, setProfile, goBack, onLogout }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile);
+
+  useEffect(() => {
+    setDraft(profile);
+  }, [profile]);
+
   return (
     <>
       <ScreenHeader title="MOJ PROFIL" right={editing ? "Save" : "Edit"} onBack={goBack} onRight={() => {
@@ -475,6 +652,7 @@ function ProfileScreen({ profile, setProfile, goBack, onLogout }) {
             <>
               <Text style={styles.profileName}>{profile.name}</Text>
               <Text style={styles.profileMotto}>{profile.goal}</Text>
+              {!!profile.email && <Text style={styles.profileEmail}>{profile.email}</Text>}
             </>
           )}
         </View>
@@ -620,7 +798,9 @@ function BrandLogo({ light, large }) {
 function Quick({ icon, label, onPress }) {
   return (
     <Pressable style={styles.quick} onPress={onPress}>
-      <Text style={styles.quickIcon}>{icon}</Text>
+      <View style={styles.quickIcon}>
+        <Text style={styles.quickIconText}>{icon}</Text>
+      </View>
       <Text style={styles.quickLabel}>{label}</Text>
     </Pressable>
   );
@@ -680,6 +860,21 @@ function ProfileStat({ label, value }) {
   );
 }
 
+function LeafLine({ small }) {
+  const size = small ? 30 : 58;
+  const stroke = colors.olive;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 64 64">
+      <Path d="M32 55 C33 40 33 26 32 10" stroke={stroke} strokeWidth="2" fill="none" strokeLinecap="round" />
+      <Path d="M32 18 C22 16 15 22 12 34 C24 34 31 28 32 18 Z" stroke={stroke} strokeWidth="1.8" fill="none" />
+      <Path d="M32 27 C43 24 51 31 53 44 C40 43 33 37 32 27 Z" stroke={stroke} strokeWidth="1.8" fill="none" />
+      <Path d="M31 38 C23 37 17 42 15 52 C25 51 31 47 31 38 Z" stroke={stroke} strokeWidth="1.6" fill="none" />
+      <Path d="M33 17 C27 22 21 27 14 34" stroke={stroke} strokeWidth="1" fill="none" opacity={0.6} />
+      <Path d="M33 28 C40 33 46 38 52 44" stroke={stroke} strokeWidth="1" fill="none" opacity={0.6} />
+    </Svg>
+  );
+}
+
 function BottomNav({ active, setActive }) {
   return (
     <View style={styles.bottomNav}>
@@ -697,7 +892,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.paper },
   safeDark: { flex: 1, backgroundColor: colors.forest },
   app: { flex: 1, backgroundColor: colors.paper },
-  scroll: { padding: 18, paddingBottom: 104 },
+  scroll: { padding: 20, paddingBottom: 106 },
   login: { flex: 1, justifyContent: "space-between", padding: 24 },
   loginImage: { borderRadius: 0 },
   loginVeil: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(21, 29, 12, 0.42)" },
@@ -741,61 +936,80 @@ const styles = StyleSheet.create({
   brandSub: { color: colors.forest, fontSize: 15, fontWeight: "400", letterSpacing: 8 },
   brandSubLarge: { fontSize: 18 },
   brandTag: { color: colors.white, fontSize: 10, letterSpacing: 1.7, marginTop: 10, textAlign: "center" },
-  topChrome: { flexDirection: "row", alignItems: "flex-start", gap: 14, marginBottom: 18 },
-  menu: { color: colors.forest, fontSize: 28, marginTop: -4 },
-  bell: { color: colors.forest, fontSize: 24, marginLeft: "auto" },
+  topChrome: { flexDirection: "row", alignItems: "flex-start", gap: 14, marginBottom: 20 },
+  menu: { color: colors.forest, fontSize: 30, marginTop: -5 },
+  bell: { color: colors.forest, fontSize: 26, marginLeft: "auto", fontWeight: "300" },
   topText: { flex: 1 },
-  homeTitle: { color: colors.ink, fontSize: 19, fontWeight: "500" },
+  homeTitle: { color: colors.ink, fontSize: 20, fontWeight: "600" },
   homeSubtitle: { color: colors.ink, fontSize: 12, marginTop: 4 },
-  quickGrid: { flexDirection: "row", justifyContent: "space-between", marginBottom: 18 },
+  quickGrid: { flexDirection: "row", justifyContent: "space-between", marginBottom: 22 },
   quick: { alignItems: "center", width: 62 },
   quickIcon: {
-    width: 46,
-    height: 46,
+    width: 50,
+    height: 50,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(251, 243, 231, 0.74)",
+    shadowColor: colors.forest,
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  quickIconText: {
     color: colors.forest,
     fontSize: 15,
-    lineHeight: 44,
     textAlign: "center",
-    backgroundColor: colors.card,
     fontWeight: "700",
   },
-  quickLabel: { color: colors.ink, fontSize: 10, marginTop: 7 },
+  quickLabel: { color: colors.ink, fontSize: 10, marginTop: 8 },
   focusCard: {
-    minHeight: 92,
+    minHeight: 96,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: 14,
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 16,
-    backgroundColor: colors.card,
+    padding: 17,
+    backgroundColor: "rgba(251, 243, 231, 0.72)",
+    shadowColor: colors.forest,
+    shadowOpacity: 0.06,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   tiny: { color: colors.muted, fontSize: 10, letterSpacing: 0.6 },
   focusText: { color: colors.ink, fontSize: 18, lineHeight: 24, marginTop: 8, maxWidth: 230 },
-  leafMark: { color: colors.olive, fontSize: 46, alignSelf: "flex-end" },
-  leafSmall: { color: colors.olive, fontSize: 22 },
+  leafMark: { alignSelf: "flex-end", marginBottom: -4 },
   sectionLabel: { color: colors.muted, fontSize: 11, letterSpacing: 0.6, marginBottom: 8, marginTop: 18 },
   taskCard: {
     minHeight: 62,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 15,
+    borderRadius: 13,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     marginBottom: 8,
     paddingHorizontal: 12,
-    backgroundColor: colors.card,
+    backgroundColor: "rgba(251, 243, 231, 0.74)",
   },
   taskIcon: { color: colors.forest, fontSize: 15, width: 28, fontWeight: "700" },
   taskTextWrap: { flex: 1 },
   taskTitle: { color: colors.ink, fontSize: 14, fontWeight: "600" },
   taskSubtitle: { color: colors.ink, fontSize: 11, marginTop: 3 },
   arrow: { color: colors.forest, fontSize: 23 },
-  progressCard: { borderWidth: 1, borderColor: colors.line, borderRadius: 16, marginTop: 8, padding: 14, backgroundColor: colors.card },
+  progressCard: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    marginTop: 10,
+    padding: 15,
+    backgroundColor: "rgba(251, 243, 231, 0.74)",
+  },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   body: { color: colors.ink, fontSize: 13, marginTop: 12 },
   progressBar: { height: 7, borderRadius: 999, marginTop: 9, backgroundColor: colors.sage, overflow: "hidden" },
@@ -842,6 +1056,16 @@ const styles = StyleSheet.create({
   postTime: { color: colors.ink, fontSize: 11 },
   postText: { color: colors.ink, fontSize: 13, marginTop: 4 },
   reactions: { color: colors.muted, fontSize: 12, marginTop: 7 },
+  chatStatus: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    padding: 14,
+    backgroundColor: "rgba(251, 243, 231, 0.74)",
+  },
   communityPhoto: { height: 150, borderRadius: 16, overflow: "hidden", marginTop: 4 },
   communityPhotoImage: { borderRadius: 16 },
   photoShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(27, 35, 15, 0.08)" },
@@ -933,27 +1157,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
-  profileCard: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 18 },
-  profileImage: { width: 84, height: 84, borderRadius: 999 },
+  profileCard: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 18,
+    padding: 14,
+    backgroundColor: "rgba(251, 243, 231, 0.78)",
+  },
+  profileImage: { width: 86, height: 86, borderRadius: 999, borderWidth: 1, borderColor: colors.line },
   profileText: { flex: 1 },
   profileName: { color: colors.ink, fontSize: 22, fontWeight: "500" },
   profileMotto: { color: colors.ink, fontSize: 13, marginTop: 5 },
+  profileEmail: { color: colors.muted, fontSize: 11, marginTop: 6 },
   profileInput: { borderBottomWidth: 1, borderColor: colors.line, color: colors.ink, minHeight: 34 },
   editGrid: { gap: 10, marginBottom: 14 },
   profileStats: {
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: 14,
     flexDirection: "row",
     justifyContent: "space-around",
     marginBottom: 18,
     paddingVertical: 14,
-    backgroundColor: colors.card,
+    backgroundColor: "rgba(251, 243, 231, 0.74)",
   },
   profileStat: { alignItems: "center", flex: 1 },
   profileStatLabel: { color: colors.muted, fontSize: 11 },
   profileStatValue: { color: colors.ink, fontSize: 22, marginTop: 6 },
-  gazzCard: { borderWidth: 1, borderColor: colors.line, borderRadius: 16, padding: 16, backgroundColor: colors.card },
+  gazzCard: { borderWidth: 1, borderColor: colors.line, borderRadius: 16, padding: 16, backgroundColor: "rgba(251, 243, 231, 0.78)" },
   gazzTitle: { color: colors.ink, fontSize: 18, letterSpacing: 0.8 },
   bottle: { color: colors.forest, fontSize: 24, fontWeight: "700" },
   gazzText: { color: colors.ink, fontSize: 13, lineHeight: 19, marginTop: 10, maxWidth: 240 },
@@ -977,11 +1212,16 @@ const styles = StyleSheet.create({
     height: 70,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 20,
+    borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 4,
-    backgroundColor: "rgba(248, 240, 227, 0.96)",
+    backgroundColor: "rgba(251, 243, 231, 0.94)",
+    shadowColor: colors.forest,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
   navItem: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3 },
   navIcon: { color: colors.muted, fontSize: 15, fontWeight: "700" },
