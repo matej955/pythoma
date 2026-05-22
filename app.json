@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Pythoma Sanctuary",
+    "slug": "pythoma-sanctuary",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "pythoma",
+    "backgroundColor": "#fffaf3",
+    "splash": {
+      "backgroundColor": "#20483a",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "pythoma",
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "package": "com.pythoma.app",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "backgroundColor": "#20483a"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
+  }
+}

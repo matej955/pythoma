@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#20483a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Pythoma" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Pythoma Sanctuary</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Glavna navigacija">
+        <a class="brand" href="#dashboard" data-view-link="dashboard" aria-label="Pythoma Sanctuary">
+          <span class="brand-mark">P</span>
+          <span>
+            <strong>Pythoma</strong>
+            <small>Sanctuary</small>
+          </span>
+        </a>
+
+        <nav class="nav-list">
+          <button class="nav-item is-active" type="button" data-view-link="dashboard" data-icon="⌂">Pregled</button>
+          <button class="nav-item" type="button" data-view-link="programs" data-icon="●">Programi</button>
+          <button class="nav-item" type="button" data-view-link="community" data-icon="◐">Chat</button>
+          <button class="nav-item" type="button" data-view-link="wellness" data-icon="✦">Wellness</button>
+          <button class="nav-item" type="button" data-view-link="membership" data-icon="◆">Plan</button>
+        </nav>
+
+        <div class="member-card">
+          <span class="status-dot"></span>
+          <p>Premium ritual aktivan</p>
+          <strong>21 dana fokusa</strong>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Siguran prostor za snagu, mir i disciplinu</p>
+            <h1>Pythoma Sanctuary</h1>
+          </div>
+          <button class="primary-action" type="button" data-open-checkin>Jutarnji check-in</button>
+        </header>
+
+        <section class="view is-visible" id="dashboard" aria-labelledby="dashboard-title">
+          <div class="hero-band">
+            <div class="hero-copy">
+              <p class="eyebrow">Danasnji fokus</p>
+              <h2 id="dashboard-title">Treniraj tijelo, smiri glavu, vrati se sebi.</h2>
+              <p>
+                Kombiniraj treninge, motivacijske zadatke i wellness rituale u jednom toplom,
+                podrzavajucem prostoru.
+              </p>
+              <div class="hero-actions">
+                <button class="primary-action" type="button" data-view-link="programs">Kreni s treningom</button>
+                <button class="ghost-action" type="button" data-view-link="community">Otvori chat</button>
+              </div>
+            </div>
+            <div class="hero-visual" aria-hidden="true">
+              <div class="sun"></div>
+              <div class="leaf leaf-a"></div>
+              <div class="leaf leaf-b"></div>
+              <div class="figure"></div>
+            </div>
+          </div>
+
+          <div class="stats-grid" aria-label="Tjedni napredak">
+            <article>
+              <span>Treninzi</span>
+              <strong id="stat-workouts">0/5</strong>
+            </article>
+            <article>
+              <span>Rituali</span>
+              <strong id="stat-rituals">0/4</strong>
+            </article>
+            <article>
+              <span>Community</span>
+              <strong>128 zena</strong>
+            </article>
+            <article>
+              <span>Streak</span>
+              <strong id="stat-streak">1 dan</strong>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Daily board</p>
+                  <h3>Jutro i vecer</h3>
+                </div>
+                <button class="icon-button" type="button" data-refresh-board aria-label="Nova poruka">↻</button>
+              </div>
+              <blockquote id="daily-quote"></blockquote>
+              <div class="task-list" id="task-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Napredak</p>
+                  <h3>Tjedni cilj</h3>
+                </div>
+                <span class="pill" id="progress-label">0%</span>
+              </div>
+              <div class="progress-ring" aria-hidden="true">
+                <svg viewBox="0 0 120 120">
+                  <circle class="ring-track" cx="60" cy="60" r="48"></circle>
+                  <circle class="ring-fill" id="progress-ring" cx="60" cy="60" r="48"></circle>
+                </svg>
+                <strong id="progress-number">0%</strong>
+              </div>
+              <button class="secondary-action" type="button" data-add-workout>Oznaci trening</button>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="programs" aria-labelledby="programs-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Fitness programi</p>
+              <h2 id="programs-title">Odaberi svoj ritam</h2>
+            </div>
+            <div class="segmented" role="tablist" aria-label="Filter programa">
+              <button class="is-active" type="button" data-filter="all">Sve</button>
+              <button type="button" data-filter="gym">Gym</button>
+              <button type="button" data-filter="home">Home</button>
+              <button type="button" data-filter="wellness">Mobility</button>
+            </div>
+          </div>
+          <div class="program-grid" id="program-grid"></div>
+        </section>
+
+        <section class="view" id="community" aria-labelledby="community-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Community chat</p>
+              <h2 id="community-title">Podrska koja nosi</h2>
+            </div>
+            <span class="pill">Pozitivan i netoksican prostor</span>
+          </div>
+          <div class="chat-layout">
+            <aside class="community-topics">
+              <button class="topic is-active" type="button">Dnevni check-in</button>
+              <button class="topic" type="button">Gluteus program</button>
+              <button class="topic" type="button">Prehrana</button>
+              <button class="topic" type="button">Pitanja trenerici</button>
+            </aside>
+            <section class="chat-panel" aria-label="Poruke zajednice">
+              <div class="chat-messages" id="chat-messages"></div>
+              <form class="chat-form" id="chat-form">
+                <input id="chat-input" type="text" placeholder="Podijeli podrsku ili pitanje..." autocomplete="off" />
+                <button class="primary-action" type="submit">Posalji</button>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="wellness" aria-labelledby="wellness-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Wellness i prirodna rjesenja</p>
+              <h2 id="wellness-title">Rituali za energiju, san i balans</h2>
+            </div>
+          </div>
+          <div class="wellness-grid" id="wellness-grid"></div>
+        </section>
+
+        <section class="view" id="membership" aria-labelledby="membership-title">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Pretplata</p>
+              <h2 id="membership-title">Clanstvo koje raste s tobom</h2>
+            </div>
+          </div>
+          <div class="pricing-grid">
+            <article class="price-card">
+              <p class="eyebrow">Basic</p>
+              <h3>Essential</h3>
+              <strong>19 EUR / mj</strong>
+              <ul>
+                <li>Home i gym treninzi</li>
+                <li>Daily motivation board</li>
+                <li>Osnovni progress tracker</li>
+              </ul>
+              <button class="secondary-action" type="button">Odaberi Basic</button>
+            </article>
+            <article class="price-card featured">
+              <p class="eyebrow">Premium</p>
+              <h3>Sanctuary</h3>
+              <strong>39 EUR / mj</strong>
+              <ul>
+                <li>Ekskluzivni gluteus, abs i fat loss programi</li>
+                <li>Community chat i pitanja trenerici</li>
+                <li>Gazz Nutrition preporuke i discount kodovi</li>
+              </ul>
+              <button class="primary-action" type="button">Odaberi Premium</button>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="modal" id="checkin-modal">
+      <form method="dialog">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Check-in</p>
+            <h3>Kako ulazis u danasnji dan?</h3>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Zatvori">×</button>
+        </div>
+        <label>
+          Energija
+          <input id="energy-range" type="range" min="1" max="10" value="7" />
+        </label>
+        <label>
+          Namjera
+          <textarea id="intention-input" rows="4" placeholder="Danas biram..."></textarea>
+        </label>
+        <button class="primary-action" value="default" data-save-checkin>Spremi check-in</button>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="program-modal">
+      <form method="dialog">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow" id="program-modal-kicker">Program</p>
+            <h3 id="program-modal-title"></h3>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Zatvori">×</button>
+        </div>
+        <p id="program-modal-body"></p>
+        <div class="exercise-list" id="program-modal-exercises"></div>
+        <button class="primary-action" value="default" data-add-workout>Oznaci kao odradeno</button>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      }
+    </script>
+  </body>
+</html>
