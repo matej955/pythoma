@@ -1,0 +1,500 @@
+05-25 22:26:45.700 D/StartingSurfaceDrawer(  854): addSplashScreen com.pythoma.app theme=7f110192 task=13 suggestType=3
+05-25 22:26:45.702 D/StartingSurfaceDrawer(  854): window attributes color: 0 icon null duration 0 brandImage null
+05-25 22:26:45.702 D/SplashScreenView(  854): Build android.window.SplashScreenView{f504bc0 V.E...... ......ID 0,0-0,0}
+05-25 22:26:45.702 D/SplashScreenView(  854): Icon: view: null drawable: null size: 0
+05-25 22:26:45.702 D/SplashScreenView(  854): Branding: view: android.view.View{2c4f0f9 G.ED..... ......I. 0,0-0,0 #10204a6 android:id/splashscreen_branding_view} drawable: null size w: 0 h: 0
+05-25 22:26:45.702 D/StartingSurfaceDrawer(  854): fillViewWithIcon surfaceWindowView android.window.SplashScreenView{f504bc0 V.E...... ......ID 0,0-0,0}
+05-25 22:26:45.706 D/HostConnection(  572): createUnique: call
+05-25 22:26:45.706 D/HostConnection(  572): HostConnection::get() New Host Connection established 0x770eb3faebd0, tid 7521
+05-25 22:26:45.706 W/ActivityTaskManager(  572): Tried to set launchTime (0) < mLastActivityLaunchTime (2578026)
+05-25 22:26:45.709 D/HostConnection(  572): HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_native_sync_v3 ANDROID_EMU_native_sync_v4 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_vulkan ANDROID_EMU_deferred_vulkan_commands ANDROID_EMU_vulkan_null_optional_strings ANDROID_EMU_vulkan_create_resources_with_requirements ANDROID_EMU_YUV_Cache ANDROID_EMU_vulkan_ignored_handles ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_vulkan_free_memory_sync ANDROID_EMU_vulkan_shader_float16_int8 ANDROID_EMU_vulkan_async_queue_submit ANDROID_EMU_vulkan_queue_submit_with_commands ANDROID_EMU_sync_buffer_data ANDROID_EMU_vulkan_async_qsri ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_color_transform GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_1 
+05-25 22:26:45.710 W/OpenGLRenderer(  572): Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+05-25 22:26:45.710 W/OpenGLRenderer(  572): Failed to initialize 101010-2 format, error = EGL_SUCCESS
+05-25 22:26:45.717 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f4968000 0x3f52cd000]
+05-25 22:26:45.723 D/EGL_emulation(  572): eglCreateContext: 0x770eb40148d0: maj 3 min 1 rcv 4
+05-25 22:26:45.747 W/unknown:BridgelessReact( 7455): ReactHost{0}.startSurface(surfaceId = 0): Schedule
+05-25 22:26:45.747 W/unknown:BridgelessReact( 7455): ReactHost{0}.attachSurface(surfaceId = 0)
+05-25 22:26:45.748 W/unknown:BridgelessReact( 7455): ReactHost{0}.getOrCreateReactInstanceTask()
+05-25 22:26:45.749 W/unknown:BridgelessReact( 7455): ReactHost{0}.getOrCreateReactInstanceTask(): Start
+05-25 22:26:45.749 W/unknown:BridgelessReact( 7455): ReactHost{0}.getJSBundleLoader()
+05-25 22:26:45.749 W/unknown:BridgelessReact( 7455): ReactHost{0}.isMetroRunning()
+05-25 22:26:45.755 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f52cd000 0x3f5c32000]
+05-25 22:26:45.757 W/unknown:BridgelessReact( 7455): ReactHost{0}.onHostResume(activity)
+05-25 22:26:45.759 D/EGL_emulation(  572): eglMakeCurrent: 0x770eb40148d0: ver 3 1 (tinfo 0x770e0c3ee100) (first time)
+05-25 22:26:45.770 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f5c32000 0x3f6597000]
+05-25 22:26:45.802 D/EGL_emulation(  854): app_time_stats: avg=89.72ms min=0.81ms max=2834.43ms count=37
+05-25 22:26:45.872 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:26:46.052 W/com.pythoma.ap( 7455): Accessing hidden method Landroid/os/SystemProperties;->addChangeCallback(Ljava/lang/Runnable;)V (unsupported, reflection, allowed)
+05-25 22:26:46.162 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3fa2a4000 0x3fac09000]
+05-25 22:26:46.175 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3fac09000 0x3fb56e000]
+05-25 22:26:46.188 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3fb56e000 0x3fbed3000]
+05-25 22:26:46.196 I/ActivityTaskManager(  572): Displayed com.pythoma.app/.MainActivity: +518ms
+05-25 22:26:46.196 D/StartingSurfaceDrawer(  854): Task start finish, remove starting surface for task 13
+05-25 22:26:46.196 V/StartingSurfaceDrawer(  854): Removing splash screen window for task: 13
+05-25 22:26:46.217 W/unknown:BridgelessReact( 7455): ReactHost{0}.raiseSoftException(onWindowFocusChange(hasFocus = "true")): Tried to access onWindowFocusChange while context is not ready
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): Unhandled SoftException
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): com.facebook.react.bridge.ReactNoCrashSoftException: raiseSoftException(onWindowFocusChange(hasFocus = "true")): Tried to access onWindowFocusChange while context is not ready
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at com.facebook.react.runtime.ReactHostImpl.raiseSoftException(ReactHostImpl.kt:787)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at com.facebook.react.runtime.ReactHostImpl.raiseSoftException$default(ReactHostImpl.kt:779)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at com.facebook.react.runtime.ReactHostImpl.onWindowFocusChange(ReactHostImpl.kt:589)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at com.facebook.react.ReactDelegate.onWindowFocusChanged(ReactDelegate.kt:217)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at com.facebook.react.ReactActivityDelegate.onWindowFocusChanged(ReactActivityDelegate.java:236)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at expo.modules.ReactActivityDelegateWrapper$onWindowFocusChanged$1.invokeSuspend(ReactActivityDelegateWrapper.kt:353)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at expo.modules.ReactActivityDelegateWrapper$onWindowFocusChanged$1.invoke(Unknown Source:8)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at expo.modules.ReactActivityDelegateWrapper$onWindowFocusChanged$1.invoke(Unknown Source:4)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at expo.modules.ReactActivityDelegateWrapper$launchLifecycleScopeWithLock$1.invokeSuspend(ReactActivityDelegateWrapper.kt:485)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at kotlinx.coroutines.internal.DispatchedContinuationKt.resumeCancellableWith(DispatchedContinuation.kt:359)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at kotlinx.coroutines.intrinsics.CancellableKt.startCoroutineCancellable(Cancellable.kt:26)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at kotlinx.coroutines.CoroutineStart.invoke(CoroutineStart.kt:358)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at kotlinx.coroutines.AbstractCoroutine.start(AbstractCoroutine.kt:124)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at kotlinx.coroutines.BuildersKt__Builders_commonKt.launch(Builders.common.kt:52)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at kotlinx.coroutines.BuildersKt.launch(Unknown Source:1)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at kotlinx.coroutines.BuildersKt__Builders_commonKt.launch$default(Builders.common.kt:43)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at kotlinx.coroutines.BuildersKt.launch$default(Unknown Source:1)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at expo.modules.ReactActivityDelegateWrapper.launchLifecycleScopeWithLock(ReactActivityDelegateWrapper.kt:483)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at expo.modules.ReactActivityDelegateWrapper.launchLifecycleScopeWithLock$default(ReactActivityDelegateWrapper.kt:479)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at expo.modules.ReactActivityDelegateWrapper.onWindowFocusChanged(ReactActivityDelegateWrapper.kt:351)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at com.facebook.react.ReactActivity.onWindowFocusChanged(ReactActivity.java:158)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at androidx.appcompat.view.WindowCallbackWrapper.onWindowFocusChanged(WindowCallbackWrapper.java:124)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at com.android.internal.policy.DecorView.onWindowFocusChanged(DecorView.java:1784)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.view.View.dispatchWindowFocusChanged(View.java:14813)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.view.ViewGroup.dispatchWindowFocusChanged(ViewGroup.java:1507)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.view.ViewRootImpl.handleWindowFocusChanged(ViewRootImpl.java:3471)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.view.ViewRootImpl.access$1200(ViewRootImpl.java:226)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.view.ViewRootImpl$ViewRootHandler.handleMessageImpl(ViewRootImpl.java:5363)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.view.ViewRootImpl$ViewRootHandler.handleMessage(ViewRootImpl.java:5263)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.os.Handler.dispatchMessage(Handler.java:106)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.os.Looper.loopOnce(Looper.java:201)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.os.Looper.loop(Looper.java:288)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at android.app.ActivityThread.main(ActivityThread.java:7839)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at java.lang.reflect.Method.invoke(Native Method)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+05-25 22:26:46.219 E/unknown:ReactHost( 7455): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1003)
+05-25 22:26:46.221 I/GoogleInputMethodService( 1369): GoogleInputMethodService.onFinishInput():3420 
+05-25 22:26:46.221 I/GoogleInputMethodService( 1369): GoogleInputMethodService.onStartInput():2002 
+05-25 22:26:46.222 I/DeviceUnlockedTag( 1369): DeviceUnlockedTag.notifyDeviceLockStatusChanged():31 Notify device unlocked.
+05-25 22:26:46.227 W/InputManager-JNI(  572): Input channel object '8252311 com.pythoma.app/com.pythoma.app.MainActivity (client)' was disposed without first being removed with the input manager!
+05-25 22:26:46.488 W/InputManager-JNI(  572): Input channel object 'e820fe5 Splash Screen com.pythoma.app (client)' was disposed without first being removed with the input manager!
+05-25 22:26:46.708 W/unknown:BridgelessReact( 7455): ReactHost{0}.isMetroRunning(): Async result = true
+05-25 22:26:46.708 W/unknown:BridgelessReact( 7455): ReactHost{0}.loadJSBundleFromMetro()
+05-25 22:26:46.737 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f7e64000 0x3f7eb0000]
+05-25 22:26:46.750 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f7eb0000 0x3f7efc000]
+05-25 22:26:46.754 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f7efc000 0x3f7f48000]
+05-25 22:26:46.803 D/EGL_emulation(  854): app_time_stats: avg=58.83ms min=10.57ms max=736.42ms count=17
+05-25 22:26:47.253 D/ProfileInstaller( 7455): Installing profile for com.pythoma.app
+05-25 22:26:47.450 W/earchbox:searc( 1744): Reducing the number of considered missed Gc histogram windows from 246 to 100
+05-25 22:26:47.451 W/System  ( 1744): A resource failed to call close. 
+05-25 22:26:47.451 W/System  ( 1744): A resource failed to call close. 
+05-25 22:26:47.452 W/SQLiteConnectionPool( 1744): A SQLiteConnection object for database '/data/user/0/com.google.android.googlequicksearchbox/databases/icing-mdh.db' was leaked!  Please fix your application to end transactions in progress properly and to close the database when it is no longer needed.
+05-25 22:26:47.452 W/System  ( 1744): A resource failed to call close. 
+05-25 22:26:53.808 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:26:55.567 D/EGL_emulation( 7455): app_time_stats: avg=1258.19ms min=16.05ms max=5251.34ms count=7
+05-25 22:26:55.668 D/BoundBrokerSvc( 5698): onUnbind: Intent { act=com.google.android.gms.nearby.exposurenotification.START dat=chimera-action: cmp=com.google.android.gms/.chimera.PersistentApiService }
+05-25 22:26:55.932 D/BoundBrokerSvc( 5768): onUnbind: Intent { act=com.google.android.gms.feedback.internal.IFeedbackService dat=chimera-action: cmp=com.google.android.gms/.chimera.GmsBoundBrokerService }
+05-25 22:26:56.013 I/ActivityManager(  572): Killing 6857:com.google.android.projection.gearhead:shared/u0a99 (adj 995): empty for 2136s
+05-25 22:26:56.014 I/libprocessgroup(  572): Successfully killed process cgroup uid 10099 pid 6857 in 0ms
+05-25 22:26:56.019 I/Zygote  (  353): Process 6857 exited due to signal 9 (Killed)
+05-25 22:26:56.649 D/EGL_emulation( 7455): app_time_stats: avg=44.99ms min=12.62ms max=282.05ms count=24
+05-25 22:26:57.784 D/EGL_emulation( 7455): app_time_stats: avg=59.56ms min=15.86ms max=464.38ms count=19
+05-25 22:26:58.883 D/EGL_emulation( 7455): app_time_stats: avg=549.38ms min=15.79ms max=1082.97ms count=2
+05-25 22:27:00.025 D/EGL_emulation(  854): app_time_stats: avg=29675.73ms min=29675.73ms max=29675.73ms count=1
+05-25 22:27:01.744 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:27:02.302 D/EGL_emulation( 7455): app_time_stats: avg=3418.29ms min=3418.29ms max=3418.29ms count=1
+05-25 22:27:02.925 I/ActivityManager(  572): Killing 5936:com.google.android.apps.youtube.music/u0a109 (adj 995): empty for 2141s
+05-25 22:27:02.932 D/ConnectivityService(  572): ConnectivityService NetworkRequestInfo binderDied(uid/pid:10109/5936, android.os.BinderProxy@a8e41ca)
+05-25 22:27:02.932 D/ConnectivityService(  572): ConnectivityService NetworkRequestInfo binderDied(uid/pid:10109/5936, android.os.BinderProxy@2d9bf3b)
+05-25 22:27:02.933 D/ConnectivityService(  572): ConnectivityService NetworkRequestInfo binderDied(uid/pid:10109/5936, android.os.BinderProxy@19c9658)
+05-25 22:27:02.933 D/ConnectivityService(  572): ConnectivityService NetworkRequestInfo binderDied(uid/pid:10109/5936, android.os.BinderProxy@58b03b1)
+05-25 22:27:02.933 V/MediaPlayerList( 6775): onActiveSessionsChanged: number of controllers: 0
+05-25 22:27:02.934 I/Zygote  (  353): Process 5936 exited due to signal 9 (Killed)
+05-25 22:27:02.934 D/ConnectivityService(  572): releasing NetworkRequest [ REQUEST id=129, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10109 RequestorUid: 10109 RequestorPkg: com.google.android.apps.youtube.music] ] (release request)
+05-25 22:27:02.934 D/ConnectivityService(  572): releasing NetworkRequest [ REQUEST id=131, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10109 RequestorUid: 10109 RequestorPkg: com.google.android.apps.youtube.music] ] (release request)
+05-25 22:27:02.934 D/ConnectivityService(  572): releasing NetworkRequest [ REQUEST id=136, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10109 RequestorUid: 10109 RequestorPkg: com.google.android.apps.youtube.music] ] (release request)
+05-25 22:27:02.948 I/libprocessgroup(  572): Successfully killed process cgroup uid 10109 pid 5936 in 22ms
+05-25 22:27:03.452 D/EGL_emulation( 7455): app_time_stats: avg=191.60ms min=33.61ms max=601.99ms count=6
+05-25 22:27:05.116 W/unknown:BridgelessReact( 7455): ReactHost{0}.loadJSBundleFromMetro(): Creating BundleLoader
+05-25 22:27:05.117 W/unknown:BridgelessReact( 7455): ReactHost{0}.getOrCreateReactContext(): Creating BridgelessReactContext
+05-25 22:27:05.118 W/InputManager-JNI(  572): Input channel object 'fe21e1a PopupWindow:b9943e4 (client)' was disposed without first being removed with the input manager!
+05-25 22:27:05.120 W/unknown:BridgelessReact( 7455): ReactHost{0}.getOrCreateReactInstanceTask(): Creating ReactInstance
+05-25 22:27:05.136 D/jni_lib_merge( 7455): Entering merged library JNI_OnLoad.
+05-25 22:27:05.136 D/jni_lib_merge( 7455): Preparing 4 pre-merged libs (including stub)
+05-25 22:27:05.136 D/jni_lib_merge( 7455): Preparing to register libhermes_executor_so.  onload_func: 0x770daa8e2ce0
+05-25 22:27:05.136 D/jni_lib_merge( 7455): Preparing to register libhermesinstancejni_so.  onload_func: 0x770daa915700
+05-25 22:27:05.137 D/jni_lib_merge( 7455): Preparing to register libjsijniprofiler_so.  onload_func: 0x770daa917470
+05-25 22:27:05.137 D/jni_lib_merge( 7455): About to register 3 actual methods.
+05-25 22:27:05.245 I/ExpoModulesCore( 7455): ‘ù˘ AppContext was initialized
+05-25 22:27:05.279 W/unknown:BridgelessReact( 7455): ReactHost{0}.getOrCreateReactInstanceTask(): Loading JS Bundle
+05-25 22:27:05.280 W/unknown:BridgelessReact( 7455): ReactHost{0}.getOrCreateReactInstanceTask(): Calling DevSupportManagerBase.onNewReactContextCreated(reactContext)
+05-25 22:27:05.294 W/unknown:ReactNative( 7455): Packager connection already open, nooping.
+05-25 22:27:05.295 W/unknown:BridgelessReact( 7455): ReactContext.onHostResume()
+05-25 22:27:05.295 W/unknown:BridgelessReact( 7455): ReactHost{0}.startSurface(surfaceId = 0): Execute
+05-25 22:27:05.297 W/unknown:BridgelessReact( 7455): ReactHost{0}.getOrCreateReactInstanceTask(): Executing ReactInstanceEventListeners
+05-25 22:27:05.297 I/ExpoDevMenu( 7455): Delegate's context was loaded.
+05-25 22:27:05.298 W/ServiceManager(  572): Permission failure: android.permission.HIGH_SAMPLING_RATE_SENSORS from uid=10145 pid=7455
+05-25 22:27:05.298 W/ServiceManager(  572): Permission failure: android.permission.HIGH_SAMPLING_RATE_SENSORS from uid=10145 pid=7455
+05-25 22:27:05.303 W/DevLauncher( 7455): java.lang.NoSuchFieldException: No field colorScheme in class Lcom/facebook/react/modules/appearance/AppearanceModule; (declaration of 'com.facebook.react.modules.appearance.AppearanceModule' appears in /data/app/~~D1AXWEF90mKF8ASd75AC1A==/com.pythoma.app-RbOH9AUP1Ge5U9z4Y6Ra_Q==/base.apk!classes6.dex)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at java.lang.Class.getDeclaredField(Native Method)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at expo.modules.devlauncher.helpers.DevLauncherReflectionExtensionsKt.setProtectedDeclaredField(DevLauncherReflectionExtensions.kt:21)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at expo.modules.devlauncher.helpers.DevLauncherReflectionExtensionsKt.setProtectedDeclaredField$default(DevLauncherReflectionExtensions.kt:20)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at expo.modules.devlauncher.launcher.loaders.DevLauncherExpoAppLoader.applyUserInterfaceStyle(DevLauncherExpoAppLoader.kt:62)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at expo.modules.devlauncher.launcher.loaders.DevLauncherExpoAppLoader.onReactContext(DevLauncherExpoAppLoader.kt:39)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at expo.modules.devlauncher.launcher.loaders.DevLauncherAppLoader$createOnDelegateWillBeCreatedListener$1$2.onReactContextInitialized(DevLauncherAppLoader.kt:57)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.ReactHostImpl.getOrCreateReactInstanceTask$lambda$41$lambda$39(ReactHostImpl.kt:993)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.ReactHostImpl.$r8$lambda$x6crt2XzJBIcgFXK71Tpn5zAwb8(Unknown Source:0)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.ReactHostImpl$$ExternalSyntheticLambda33.invoke(D8$$SyntheticClass:0)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.ReactHostImpl$sam$com_facebook_react_runtime_internal_bolts_Continuation$0.then(Unknown Source:2)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task$Companion.completeImmediately$lambda$3(Task.kt:356)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task$Companion.$r8$lambda$b7MTC0ufkn_2TjF4BGcNqGR9qK0(Unknown Source:0)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task$Companion$$ExternalSyntheticLambda3.run(D8$$SyntheticClass:0)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Executors$ImmediateExecutor.execute(Executors.kt:41)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task$Companion.completeImmediately(Task.kt:354)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task$Companion.access$completeImmediately(Task.kt:250)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task.continueWith(Task.kt:132)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task.continueWith$default(Task.kt:117)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task.onSuccess$lambda$12(Task.kt:174)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task.$r8$lambda$l0wwo5AvbHxlwfI1R7CH_codxoo(Unknown Source:0)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task$$ExternalSyntheticLambda2.then(D8$$SyntheticClass:0)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task$Companion.completeAfterTask$lambda$5(Task.kt:390)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task$Companion.$r8$lambda$IPpysnehFwANEiW061YzapkMdoE(Unknown Source:0)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.facebook.react.runtime.internal.bolts.Task$Companion$$ExternalSyntheticLambda4.run(D8$$SyntheticClass:0)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at android.os.Handler.handleCallback(Handler.java:938)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at android.os.Handler.dispatchMessage(Handler.java:99)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at android.os.Looper.loopOnce(Looper.java:201)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at android.os.Looper.loop(Looper.java:288)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at android.app.ActivityThread.main(ActivityThread.java:7839)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at java.lang.reflect.Method.invoke(Native Method)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+05-25 22:27:05.303 W/DevLauncher( 7455): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1003)
+05-25 22:27:05.351 D/CompatibilityChangeReporter(  572): Compat change id reported: 168419799; UID 10145; state: DISABLED
+05-25 22:27:05.515 I/WebViewFactory( 7455): Loading com.google.android.webview version 91.0.4472.114 (code 447211487)
+05-25 22:27:05.527 I/netd    (  352): trafficSwapActiveStatsMap() <22.53ms>
+05-25 22:27:05.528 I/netd    (  352): tetherGetStats() -> {[]} <0.25ms>
+05-25 22:27:05.537 I/netd    (  352): bandwidthSetGlobalAlert(2097152) <0.08ms>
+05-25 22:27:05.539 I/netd    (  352): bandwidthRemoveInterfaceQuota(eth0) <0.34ms>
+05-25 22:27:05.539 I/netd    (  352): bandwidthSetInterfaceQuota(eth0, 9223372036854775807) <0.24ms>
+05-25 22:27:05.579 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f4000000 0x3f4965000]
+05-25 22:27:05.595 D/EGL_emulation(  854): app_time_stats: avg=18791.78ms min=18791.78ms max=18791.78ms count=1
+05-25 22:27:05.602 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f4968000 0x3f52cd000]
+05-25 22:27:05.615 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f52cd000 0x3f5c32000]
+05-25 22:27:05.638 E/system_server(  572): No package ID ff found for ID 0xffffffff.
+05-25 22:27:05.663 I/GoogleInputMethodService( 1369): GoogleInputMethodService.onFinishInput():3420 
+05-25 22:27:05.663 I/GoogleInputMethodService( 1369): GoogleInputMethodService.onStartInput():2002 
+05-25 22:27:05.664 I/DeviceUnlockedTag( 1369): DeviceUnlockedTag.notifyDeviceLockStatusChanged():31 Notify device unlocked.
+05-25 22:27:05.672 W/com.pythoma.ap( 7455): Accessing hidden method Landroid/os/Trace;->isTagEnabled(J)Z (unsupported, reflection, allowed)
+05-25 22:27:05.673 W/com.pythoma.ap( 7455): Accessing hidden method Landroid/os/Trace;->traceBegin(JLjava/lang/String;)V (unsupported, reflection, allowed)
+05-25 22:27:05.673 W/com.pythoma.ap( 7455): Accessing hidden method Landroid/os/Trace;->traceEnd(J)V (unsupported, reflection, allowed)
+05-25 22:27:05.673 W/com.pythoma.ap( 7455): Accessing hidden method Landroid/os/Trace;->asyncTraceBegin(JLjava/lang/String;I)V (unsupported, reflection, allowed)
+05-25 22:27:05.673 W/com.pythoma.ap( 7455): Accessing hidden method Landroid/os/Trace;->asyncTraceEnd(JLjava/lang/String;I)V (unsupported, reflection, allowed)
+05-25 22:27:05.676 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.reactnativegooglesignin.RNGoogleSigninButtonViewManager
+05-25 22:27:05.681 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.uimanager.LayoutShadowNode
+05-25 22:27:05.690 I/cr_VariationsUtils( 7455): Failed reading seed file "/data/user/0/com.pythoma.app/app_webview/variations_seed_new"
+05-25 22:27:05.690 I/cr_VariationsUtils( 7455): Failed reading seed file "/data/user/0/com.pythoma.app/app_webview/variations_seed"
+05-25 22:27:05.690 I/cr_VariationsUtils( 7455): Requesting new seed from IVariationsSeedServer
+05-25 22:27:05.692 D/CompatibilityChangeReporter(  572): Compat change id reported: 135634846; UID 10108; state: DISABLED
+05-25 22:27:05.693 D/CompatibilityChangeReporter(  572): Compat change id reported: 143937733; UID 10108; state: ENABLED
+05-25 22:27:05.696 D/Zygote  (  353): Forked child process 7553
+05-25 22:27:05.697 I/ActivityManager(  572): Start proc 7553:com.google.android.webview:webview_service/u0a108 for service {com.google.android.webview/org.chromium.android_webview.services.VariationsSeedServer}
+05-25 22:27:05.700 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$DefsViewManager
+05-25 22:27:05.701 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.VirtualViewManager$RenderableShadowNode
+05-25 22:27:05.706 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.debuggingoverlay.DebuggingOverlayManager
+05-25 22:27:05.710 I/cr_LibraryLoader( 7455): Loaded native library version number "91.0.4472.114"
+05-25 22:27:05.710 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeMergeManager
+05-25 22:27:05.711 I/cr_CachingUmaRecorder( 7455): Flushed 5 samples from 5 histograms.
+05-25 22:27:05.712 W/webview_servic( 7553): Unexpected CPU variant for X86 using defaults: x86_64
+05-25 22:27:05.715 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.safeareaview.ReactSafeAreaViewManager
+05-25 22:27:05.715 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.safeareaview.ReactSafeAreaViewShadowNode
+05-25 22:27:05.716 I/adbd    (  463): jdwp connection from 7553
+05-25 22:27:05.721 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$LinearGradientManager
+05-25 22:27:05.727 D/CompatibilityChangeReporter(  572): Compat change id reported: 168419799; UID 10108; state: DISABLED
+05-25 22:27:05.727 D/CompatibilityChangeReporter(  572): Compat change id reported: 181136395; UID 10145; state: DISABLED
+05-25 22:27:05.728 D/CompatibilityChangeReporter(  572): Compat change id reported: 174042936; UID 10145; state: DISABLED
+05-25 22:27:05.728 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeGaussianBlurManager
+05-25 22:27:05.734 D/CompatibilityChangeReporter( 7553): Compat change id reported: 171979766; UID 10108; state: ENABLED
+05-25 22:27:05.737 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.progressbar.ReactProgressBarViewManager
+05-25 22:27:05.738 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.progressbar.ProgressBarShadowNode
+05-25 22:27:05.744 V/GraphicsEnvironment( 7553): ANGLE Developer option for 'com.google.android.webview' set to: 'default'
+05-25 22:27:05.745 V/GraphicsEnvironment( 7553): Neither updatable production driver nor prerelease driver is supported.
+05-25 22:27:05.745 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.scroll.ReactHorizontalScrollViewManager
+05-25 22:27:05.745 D/NetworkSecurityConfig( 7553): No Network Security Config specified, using platform default
+05-25 22:27:05.746 D/NetworkSecurityConfig( 7553): No Network Security Config specified, using platform default
+05-25 22:27:05.753 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.text.ReactTextViewManager
+05-25 22:27:05.755 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.text.ReactTextShadowNode
+05-25 22:27:05.758 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeColorMatrixManager
+05-25 22:27:05.763 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.scroll.ReactHorizontalScrollContainerViewManager
+05-25 22:27:05.773 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$ClipPathViewManager
+05-25 22:27:05.778 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$SymbolManager
+05-25 22:27:05.785 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$PatternManager
+05-25 22:27:05.791 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeBlendManager
+05-25 22:27:05.794 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.view.ReactViewManager
+05-25 22:27:05.803 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.SvgViewManager
+05-25 22:27:05.808 I/cr_VariationsUtils( 7553): Seed download job already scheduled
+05-25 22:27:05.809 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.switchview.ReactSwitchManager
+05-25 22:27:05.810 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.switchview.ReactSwitchShadowNode
+05-25 22:27:05.812 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$UseViewManager
+05-25 22:27:05.815 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$CircleViewManager
+05-25 22:27:05.820 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$TSpanViewManager
+05-25 22:27:05.823 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FilterManager
+05-25 22:27:05.825 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$MarkerManager
+05-25 22:27:05.828 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.modal.ReactModalHostManager
+05-25 22:27:05.831 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$ForeignObjectManager
+05-25 22:27:05.836 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$EllipseViewManager
+05-25 22:27:05.839 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$LineViewManager
+05-25 22:27:05.842 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.text.frescosupport.FrescoBasedReactTextInlineImageViewManager
+05-25 22:27:05.842 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.text.frescosupport.FrescoBasedReactTextInlineImageShadowNode
+05-25 22:27:05.843 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeFloodManager
+05-25 22:27:05.846 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$GroupViewManager
+05-25 22:27:05.851 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$TextViewManager
+05-25 22:27:05.854 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$ImageViewManager
+05-25 22:27:05.857 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeCompositeManager
+05-25 22:27:05.860 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.image.ReactImageManager
+05-25 22:27:05.863 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$RadialGradientManager
+05-25 22:27:05.867 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$MaskManager
+05-25 22:27:05.869 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.unimplementedview.ReactUnimplementedViewManager
+05-25 22:27:05.872 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$RectViewManager
+05-25 22:27:05.874 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$TextPathViewManager
+05-25 22:27:05.878 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.scroll.ReactScrollViewManager
+05-25 22:27:05.881 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeOffsetManager
+05-25 22:27:05.885 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.horcrux.svg.RenderableViewManager$PathViewManager
+05-25 22:27:05.889 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.drawer.ReactDrawerLayoutManager
+05-25 22:27:05.891 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.text.ReactVirtualTextViewManager
+05-25 22:27:05.891 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.text.ReactVirtualTextShadowNode
+05-25 22:27:05.893 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.swiperefresh.SwipeRefreshLayoutManager
+05-25 22:27:05.895 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.text.ReactRawTextManager
+05-25 22:27:05.895 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.text.ReactRawTextShadowNode
+05-25 22:27:05.902 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.textinput.ReactTextInputManager
+05-25 22:27:05.903 W/unknown:ViewManagerPropertyUpdater( 7455): Could not find generated setter for class com.facebook.react.views.textinput.ReactTextInputShadowNode
+05-25 22:27:05.940 W/BridgelessReactContext( 7455): [WARNING] Bridgeless doesn't support CatalystInstance. Accessing an API that's not part of the new architecture is not encouraged usage.
+05-25 22:27:05.954 I/ExpoModulesCore( 7455): ‘ù˘ JSI interop was installed
+05-25 22:27:05.957 I/ExpoModulesCore( 7455): ‘ù˘ Constants were exported
+05-25 22:27:06.074 V/AsyncStorageExpoMigration( 7455): No scoped database found
+05-25 22:27:06.290 I/ReactNativeJS( 7455): Running "main" with {"rootTag":1,"initialProps":{},"fabric":true}
+05-25 22:27:06.329 D/BoundBrokerSvc( 5768): onBind: Intent { act=com.google.android.gms.auth.api.signin.service.START pkg=com.google.android.gms }
+05-25 22:27:06.329 D/BoundBrokerSvc( 5768): Loading bound service for intent: Intent { act=com.google.android.gms.auth.api.signin.service.START pkg=com.google.android.gms }
+05-25 22:27:06.404 W/ReactNativeJS( 7455): 'SafeAreaView has been deprecated and will be removed in a future release. Please use \'react-native-safe-area-context\' instead. See https://github.com/th3rdwave/react-native-safe-area-context', { [Stack] name: 'Stack' }
+05-25 22:27:06.693 W/unknown:ReactNative( 7455): StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+05-25 22:27:06.693 W/unknown:ReactNative( 7455): StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+05-25 22:27:06.739 D/resolv  (  352): GetAddrInfoHandler::run: {100 100 100 983140 10145 0}
+05-25 22:27:06.739 D/resolv  (  352): resolv_getaddrinfo: explore_fqdn(): ai_family=0 ai_socktype=1 ai_protocol=6
+05-25 22:27:06.740 D/resolv  (  352): doQuery: (1, 1)
+05-25 22:27:06.740 D/resolv  (  352): res_nmkquery: (QUERY, IN, A)
+05-25 22:27:06.740 D/resolv  (  352): res_nsend
+05-25 22:27:06.740 I/resolv  (  352): resolv_cache_lookup: lookup
+05-25 22:27:06.741 I/resolv  (  352): resolv_cache_lookup: NOT IN CACHE
+05-25 22:27:06.741 I/resolv  (  352): resolv_populate_res_for_net: netid=100
+05-25 22:27:06.743 I/resolv  (  352): res_stats_usable_server: NS stats: S 0 + E 0 + T 20 + I 0 = 20, rtt = -1, min_samples = 8
+05-25 22:27:06.743 D/resolv  (  352): doQuery: (1, 28)
+05-25 22:27:06.743 I/resolv  (  352): res_stats_usable_server: success rate 0
+05-25 22:27:06.743 D/resolv  (  352): res_nmkquery: (QUERY, IN, AAAA)
+05-25 22:27:06.743 I/resolv  (  352): res_stats_usable_server: too many resolution errors, ignoring server
+05-25 22:27:06.743 D/resolv  (  352): res_nsend
+05-25 22:27:06.743 I/resolv  (  352): res_stats_usable_server: NS stats: S 64 + E 0 + T 0 + I 0 = 64, rtt = 300, min_samples = 8
+05-25 22:27:06.743 I/resolv  (  352): resolv_cache_lookup: lookup
+05-25 22:27:06.743 I/resolv  (  352): resolv_cache_lookup: NOT IN CACHE
+05-25 22:27:06.743 I/resolv  (  352): res_stats_usable_server: success rate 100
+05-25 22:27:06.743 I/resolv  (  352): resolv_populate_res_for_net: netid=100
+05-25 22:27:06.743 I/resolv  (  352): res_stats_usable_server: NS stats: S 0 + E 0 + T 20 + I 0 = 20, rtt = -1, min_samples = 8
+05-25 22:27:06.744 I/resolv  (  352): res_stats_usable_server: success rate 0
+05-25 22:27:06.744 D/resolv  (  352): res_nsend: Querying server (# 2) address = 10.0.2.3:53
+05-25 22:27:06.744 I/resolv  (  352): res_stats_usable_server: too many resolution errors, ignoring server
+05-25 22:27:06.744 I/resolv  (  352): res_stats_usable_server: NS stats: S 64 + E 0 + T 0 + I 0 = 64, rtt = 300, min_samples = 8
+05-25 22:27:06.744 I/resolv  (  352): res_stats_usable_server: success rate 100
+05-25 22:27:06.744 D/resolv  (  352): res_nsend: Querying server (# 2) address = 10.0.2.3:53
+05-25 22:27:06.744 D/resolv  (  352): send_dg: new DG socket
+05-25 22:27:06.744 I/resolv  (  352): get_timeout: using timeout of 5000 msec
+05-25 22:27:06.744 I/resolv  (  352): retrying_poll: 55 retrying_poll
+05-25 22:27:06.745 D/resolv  (  352): send_dg: new DG socket
+05-25 22:27:06.745 I/resolv  (  352): get_timeout: using timeout of 5000 msec
+05-25 22:27:06.745 I/resolv  (  352): retrying_poll: 56 retrying_poll
+05-25 22:27:06.771 W/unknown:ReactNative( 7455): StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+05-25 22:27:06.993 I/resolv  (  352): retrying_poll: 56 retrying_poll returning 1
+05-25 22:27:06.993 I/resolv  (  352): retrying_poll: 55 retrying_poll returning 1
+05-25 22:27:06.994 I/resolv  (  352): res_nsend: used send_dg 67 terrno: 0
+05-25 22:27:06.994 I/resolv  (  352): res_nsend: used send_dg 91 terrno: 0
+05-25 22:27:06.994 I/resolv  (  352): res_stats_set_sample: rcode = 0, sec = 249
+05-25 22:27:06.994 I/resolv  (  352): res_cache_add_stats_sample_locked: adding sample to stats, next = 33, count = 64
+05-25 22:27:06.994 I/resolv  (  352): res_stats_set_sample: rcode = 0, sec = 250
+05-25 22:27:06.994 D/resolv  (  352): res_nsend: got answer:
+05-25 22:27:06.994 I/resolv  (  352): res_cache_add_stats_sample_locked: adding sample to stats, next = 34, count = 64
+05-25 22:27:06.994 D/resolv  (  352): res_nsend: got answer:
+05-25 22:27:06.994 I/resolv  (  352): answer_getTTL: TTL = 300
+05-25 22:27:06.995 I/resolv  (  352): _cache_add_p: entry 102 added (count=51)
+05-25 22:27:06.995 I/resolv  (  352): cache_dump_mru_locked: MRU LIST (51):  102 101 100 98 96 97 99 95 94 93 92 91 90 89 88 75 74 69 68 61 60 56 55 5 6 14 13 54 53 47 46 21 22 17 18 40 39 38 37 36 35 34 33 32 31 28 27 16 15 2 1
+05-25 22:27:06.995 D/resolv  (  352): doQuery: rcode=0, ancount=2
+05-25 22:27:06.995 I/resolv  (  352): answer_getTTL: TTL = 300
+05-25 22:27:06.995 I/resolv  (  352): _cache_add_p: entry 103 added (count=52)
+05-25 22:27:06.995 I/resolv  (  352): cache_dump_mru_locked: MRU LIST (52):  103 102 101 100 98 96 97 99 95 94 93 92 91 90 89 88 75 74 69 68 61 60 56 55 5 6 14 13 54 53 47 46 21 22 17 18 40 39 38 37 36 35 34 33 32 31 28 27 16 15 2 1
+05-25 22:27:06.996 D/resolv  (  352): doQuery: rcode=0, ancount=2
+05-25 22:27:07.767 D/EGL_emulation( 7455): app_time_stats: avg=2696.68ms min=13.07ms max=20559.97ms count=8
+05-25 22:27:09.681 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:27:10.350 D/EGL_emulation(  854): app_time_stats: avg=10324.91ms min=10324.91ms max=10324.91ms count=1
+05-25 22:27:17.871 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:27:25.808 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:27:33.744 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:27:34.851 D/androidtc( 1369): Initializing SystemTextClassifier, type = System
+05-25 22:27:34.872 D/androidtc( 1393): Loading ModelFile { type=annotator path=/data/misc/textclassifier/textclassifier.model version=902 locales=en isAsset=false}
+05-25 22:27:34.887 I/tflite  ( 1393): Initialized TensorFlow Lite runtime.
+05-25 22:27:41.681 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:27:49.872 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:27:49.902 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f7e64000 0x3f7eb0000]
+05-25 22:27:49.907 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f7eb0000 0x3f7efc000]
+05-25 22:27:49.912 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f7efc000 0x3f7f48000]
+05-25 22:27:49.916 W/InputManager-JNI(  572): Input channel object 'f424c39 PopupWindow:48c5359 (client)' was disposed without first being removed with the input manager!
+05-25 22:27:51.035 W/InputManager-JNI(  572): Input channel object '8bfc88a PopupWindow:325cc15 (client)' was disposed without first being removed with the input manager!
+05-25 22:27:57.808 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:28:00.025 D/EGL_emulation(  854): app_time_stats: avg=49674.11ms min=49674.11ms max=49674.11ms count=1
+05-25 22:28:05.744 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:28:09.543 E/android.hardware.power.stats@1.0-service-mock(  385): Failed to getEnergyData
+05-25 22:28:13.681 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:28:21.871 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:28:29.808 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:28:37.744 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:28:45.680 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:28:46.974 I/GMS_MM_Logger( 7246): Memory Metric Logging not allowed. Stopping.
+05-25 22:28:50.350 D/EGL_emulation(  854): app_time_stats: avg=50325.13ms min=50325.13ms max=50325.13ms count=1
+05-25 22:28:53.872 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:29:00.018 D/EGL_emulation(  854): app_time_stats: avg=9667.58ms min=9667.58ms max=9667.58ms count=1
+05-25 22:29:01.809 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:29:09.012 D/CompatibilityChangeReporter(  572): Compat change id reported: 149924527; UID 2000; state: ENABLED
+05-25 22:29:09.012 D/CompatibilityChangeReporter(  572): Compat change id reported: 132649864; UID 2000; state: DISABLED
+05-25 22:29:09.023 W/MediaProvider( 1575): isAppCloneUserPair for user 0: false
+05-25 22:29:09.037 D/goldfish-address-space(  373): claimShared: Ask to claim region [0x3f5c32000 0x3f6597000]
+05-25 22:29:09.050 W/ServiceManager(  422): Permission failure: android.permission.CAPTURE_BLACKOUT_CONTENT from uid=2000 pid=7603
+05-25 22:29:09.050 D/PermissionCache(  422): checking android.permission.CAPTURE_BLACKOUT_CONTENT for uid=2000 => denied (398 us)
+05-25 22:29:09.054 I/hwservicemanager(  200): getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device VINTF manifest.
+05-25 22:29:09.054 I/Gralloc4( 7603): mapper 4.x is not supported
+05-25 22:29:09.069 I/NetworkScheduler.Stats( 5698): Task com.google.android.gms/com.google.android.gms.ipa.base.IpaGcmTaskService started execution. cause:9 exec_start_elapsed_seconds: 2726 [CONTEXT service_id=218 ]
+05-25 22:29:09.084 I/NetworkScheduler.Stats( 5698): Task com.google.android.gms/com.google.android.gms.auth.account.be.legacy.AuthCronService started execution. cause:9 exec_start_elapsed_seconds: 2726 [CONTEXT service_id=218 ]
+05-25 22:29:09.087 I/NetworkScheduler.Stats( 5698): Task com.google.android.gms/com.google.android.gms.ipa.base.IpaGcmTaskService finished executing. cause:9 result: 1 elapsed_millis: 27 uptime_millis: 27 exec_start_elapsed_seconds: 2726 [CONTEXT service_id=218 ]
+05-25 22:29:09.100 D/ActivityManager(  572): pid 6616 com.google.android.gms.unstable  received async transactions while frozen
+05-25 22:29:09.100 D/ActivityManager(  572): sync unfroze 6616 com.google.android.gms.unstable
+05-25 22:29:09.100 D/HostConnection( 7603): createUnique: call
+05-25 22:29:09.101 D/HostConnection( 7603): HostConnection::get() New Host Connection established 0x7b4f2b413450, tid 7605
+05-25 22:29:09.101 D/goldfish-address-space( 7603): allocate: Ask for block of size 0x100
+05-25 22:29:09.101 D/goldfish-address-space( 7603): allocate: ioctl allocate returned offset 0x3f3ffe000 size 0x2000
+05-25 22:29:09.104 D/HostConnection( 7603): HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_native_sync_v3 ANDROID_EMU_native_sync_v4 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_vulkan ANDROID_EMU_deferred_vulkan_commands ANDROID_EMU_vulkan_null_optional_strings ANDROID_EMU_vulkan_create_resources_with_requirements ANDROID_EMU_YUV_Cache ANDROID_EMU_vulkan_ignored_handles ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_vulkan_free_memory_sync ANDROID_EMU_vulkan_shader_float16_int8 ANDROID_EMU_vulkan_async_queue_submit ANDROID_EMU_vulkan_queue_submit_with_commands ANDROID_EMU_sync_buffer_data ANDROID_EMU_vulkan_async_qsri ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_color_transform GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_1 
+05-25 22:29:09.145 W/libc    ( 6616): Access denied finding property "persist.adb.tls_server.enable"
+05-25 22:29:09.145 W/libc    ( 6616): Access denied finding property "service.adb.tls.port"
+05-25 22:29:09.143 W/Binder:6616_4( 6616): type=1400 audit(0.0:86): avc: denied { read } for name="u:object_r:system_adbd_prop:s0" dev="tmpfs" ino=246 scontext=u:r:gmscore_app:s0:c512,c768 tcontext=u:object_r:system_adbd_prop:s0 tclass=file permissive=0 app=com.google.android.gms
+05-25 22:29:09.143 W/Binder:6616_4( 6616): type=1400 audit(0.0:87): avc: denied { read } for name="u:object_r:adbd_prop:s0" dev="tmpfs" ino=56 scontext=u:r:gmscore_app:s0:c512,c768 tcontext=u:object_r:adbd_prop:s0 tclass=file permissive=0 app=com.google.android.gms
+05-25 22:29:09.157 D/resolv  (  352): GetAddrInfoHandler::run: {100 786532 100 983140 10101 0}
+05-25 22:29:09.157 D/resolv  (  352): resolv_getaddrinfo: explore_fqdn(): ai_family=0 ai_socktype=1 ai_protocol=6
+05-25 22:29:09.157 D/resolv  (  352): android_getaddrinfofornetcontext: explore_numeric: ai_family=10 ai_socktype=1 ai_protocol=6
+05-25 22:29:09.158 D/resolv  (  352): explore_numeric_scope
+05-25 22:29:09.158 D/resolv  (  352): android_getaddrinfofornetcontext: explore_numeric: ai_family=2 ai_socktype=1 ai_protocol=6
+05-25 22:29:09.158 D/resolv  (  352): explore_numeric_scope
+05-25 22:29:09.158 I/ResolverController(  352): No valid NAT64 prefix (100, <unspecified>/0)
+05-25 22:29:09.188 D/resolv  (  352): GetAddrInfoHandler::run: {100 786532 100 983140 10101 0}
+05-25 22:29:09.188 D/resolv  (  352): resolv_getaddrinfo: explore_fqdn(): ai_family=0 ai_socktype=1 ai_protocol=6
+05-25 22:29:09.189 D/resolv  (  352): doQuery: (1, 28)
+05-25 22:29:09.189 D/resolv  (  352): doQuery: (1, 1)
+05-25 22:29:09.189 D/resolv  (  352): res_nmkquery: (QUERY, IN, A)
+05-25 22:29:09.189 D/resolv  (  352): res_nsend
+05-25 22:29:09.189 D/resolv  (  352): res_nmkquery: (QUERY, IN, AAAA)
+05-25 22:29:09.190 I/resolv  (  352): resolv_cache_lookup: lookup
+05-25 22:29:09.190 I/resolv  (  352): resolv_cache_lookup: NOT IN CACHE (STALE ENTRY 0x78c08650f0b0DISCARDED)
+05-25 22:29:09.190 I/resolv  (  352): _cache_remove_p: entry 89 removed (count=51)
+05-25 22:29:09.190 I/resolv  (  352): resolv_populate_res_for_net: netid=100
+05-25 22:29:09.190 D/resolv  (  352): res_nsend
+05-25 22:29:09.190 I/resolv  (  352): resolv_cache_lookup: lookup
+05-25 22:29:09.190 I/resolv  (  352): resolv_cache_lookup: NOT IN CACHE (STALE ENTRY 0x78c08650e690DISCARDED)
+05-25 22:29:09.190 I/resolv  (  352): _cache_remove_p: entry 88 removed (count=50)
+05-25 22:29:09.191 I/resolv  (  352): resolv_populate_res_for_net: netid=100
+05-25 22:29:09.191 I/resolv  (  352): res_stats_usable_server: NS stats: S 0 + E 0 + T 20 + I 0 = 20, rtt = -1, min_samples = 8
+05-25 22:29:09.191 I/resolv  (  352): res_stats_usable_server: success rate 0
+05-25 22:29:09.191 I/resolv  (  352): res_stats_usable_server: too many resolution errors, ignoring server
+05-25 22:29:09.191 I/resolv  (  352): res_stats_usable_server: NS stats: S 64 + E 0 + T 0 + I 0 = 64, rtt = 298, min_samples = 8
+05-25 22:29:09.192 I/resolv  (  352): res_stats_usable_server: success rate 100
+05-25 22:29:09.192 D/resolv  (  352): res_nsend: Querying server (# 2) address = 10.0.2.3:53
+05-25 22:29:09.192 D/resolv  (  352): send_dg: new DG socket
+05-25 22:29:09.192 I/resolv  (  352): get_timeout: using timeout of 5000 msec
+05-25 22:29:09.193 I/resolv  (  352): retrying_poll: 55 retrying_poll
+05-25 22:29:09.193 I/resolv  (  352): res_stats_usable_server: NS stats: S 0 + E 0 + T 20 + I 0 = 20, rtt = -1, min_samples = 8
+05-25 22:29:09.193 I/resolv  (  352): res_stats_usable_server: success rate 0
+05-25 22:29:09.193 I/resolv  (  352): res_stats_usable_server: too many resolution errors, ignoring server
+05-25 22:29:09.193 I/resolv  (  352): res_stats_usable_server: NS stats: S 64 + E 0 + T 0 + I 0 = 64, rtt = 298, min_samples = 8
+05-25 22:29:09.193 I/resolv  (  352): res_stats_usable_server: success rate 100
+05-25 22:29:09.193 D/resolv  (  352): res_nsend: Querying server (# 2) address = 10.0.2.3:53
+05-25 22:29:09.193 D/resolv  (  352): send_dg: new DG socket
+05-25 22:29:09.193 I/resolv  (  352): get_timeout: using timeout of 5000 msec
+05-25 22:29:09.194 I/resolv  (  352): retrying_poll: 56 retrying_poll
+05-25 22:29:09.619 I/resolv  (  352): retrying_poll: 56 retrying_poll returning 1
+05-25 22:29:09.619 I/resolv  (  352): res_nsend: used send_dg 104 terrno: 0
+05-25 22:29:09.619 I/resolv  (  352): retrying_poll: 55 retrying_poll returning 1
+05-25 22:29:09.619 I/resolv  (  352): res_stats_set_sample: rcode = 0, sec = 425
+05-25 22:29:09.619 I/resolv  (  352): res_nsend: used send_dg 152 terrno: 0
+05-25 22:29:09.619 I/resolv  (  352): res_cache_add_stats_sample_locked: adding sample to stats, next = 35, count = 64
+05-25 22:29:09.619 I/resolv  (  352): res_stats_set_sample: rcode = 0, sec = 426
+05-25 22:29:09.619 D/resolv  (  352): res_nsend: got answer:
+05-25 22:29:09.620 I/resolv  (  352): res_cache_add_stats_sample_locked: adding sample to stats, next = 36, count = 64
+05-25 22:29:09.620 D/resolv  (  352): res_nsend: got answer:
+05-25 22:29:09.620 I/resolv  (  352): answer_getTTL: TTL = 83
+05-25 22:29:09.620 I/resolv  (  352): _cache_add_p: entry 104 added (count=51)
+05-25 22:29:09.620 I/resolv  (  352): cache_dump_mru_locked: MRU LIST (51):  104 103 102 101 100 98 96 97 99 95 94 93 92 91 90 75 74 69 68 61 60 56 55 5 6 14 13 54 53 47 46 21 22 17 18 40 39 38 37 36 35 34 33 32 31 28 27 16 15 2 1
+05-25 22:29:09.620 D/resolv  (  352): doQuery: rcode=0, ancount=4
+05-25 22:29:09.620 I/resolv  (  352): answer_getTTL: TTL = 170
+05-25 22:29:09.620 I/resolv  (  352): _cache_add_p: entry 105 added (count=52)
+05-25 22:29:09.620 I/resolv  (  352): cache_dump_mru_locked: MRU LIST (52):  105 104 103 102 101 100 98 96 97 99 95 94 93 92 91 90 75 74 69 68 61 60 56 55 5 6 14 13 54 53 47 46 21 22 17 18 40 39 38 37 36 35 34 33 32 31 28 27 16 15 2 1
+05-25 22:29:09.620 D/resolv  (  352): doQuery: rcode=0, ancount=4
+05-25 22:29:09.636 W/Conscrypt( 5698): Could not set socket write timeout: java.net.SocketException: Socket closed
+05-25 22:29:09.638 W/Conscrypt( 5698): 	at com.google.android.gms.org.conscrypt.Platform.setSocketWriteTimeout(:com.google.android.gms@225014047@22.50.14 (190800-499278674):2)
+05-25 22:29:09.638 W/Conscrypt( 5698): 	at com.google.android.gms.org.conscrypt.ConscryptFileDescriptorSocket.setSoWriteTimeout(:com.google.android.gms@225014047@22.50.14 (190800-499278674):0)
+05-25 22:29:09.688 I/MediaProvider( 1575): Begin Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///sdcard/screen.png flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService }
+05-25 22:29:09.717 W/FuseDaemon( 1575): Reducing the number of considered missed Gc histogram windows from 263 to 100
+05-25 22:29:09.721 I/MediaProvider( 1575): End Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///sdcard/screen.png flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService }
+05-25 22:29:09.733 I/NetworkScheduler.Stats( 5698): Task com.google.android.gms/com.google.android.gms.ipa.base.IpaGcmTaskService started execution. cause:9 exec_start_elapsed_seconds: 2726 [CONTEXT service_id=218 ]
+05-25 22:29:09.749 I/NetworkScheduler.Stats( 5698): Task com.google.android.gms/com.google.android.gms.ipa.base.IpaGcmTaskService finished executing. cause:9 result: 1 elapsed_millis: 11 uptime_millis: 11 exec_start_elapsed_seconds: 2726 [CONTEXT service_id=218 ]
+05-25 22:29:09.749 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:29:09.811 I/MediaProvider( 1575): Deleted 0 1 0 0 0 0 0 items on external_primary due to com.android.shell
+05-25 22:29:09.837 I/NetworkScheduler.Stats( 5698): Task com.google.android.gms/com.google.android.gms.ipa.base.IpaGcmTaskService started execution. cause:9 exec_start_elapsed_seconds: 2726 [CONTEXT service_id=218 ]
+05-25 22:29:09.841 I/NetworkScheduler.Stats( 5698): Task com.google.android.gms/com.google.android.gms.ipa.base.IpaGcmTaskService finished executing. cause:9 result: 1 elapsed_millis: 9 uptime_millis: 9 exec_start_elapsed_seconds: 2726 [CONTEXT service_id=218 ]
+05-25 22:29:10.109 W/Conscrypt( 5698): Could not set socket write timeout: java.net.SocketException: Socket closed
+05-25 22:29:10.109 W/Conscrypt( 5698): 	at com.google.android.gms.org.conscrypt.Platform.setSocketWriteTimeout(:com.google.android.gms@225014047@22.50.14 (190800-499278674):2)
+05-25 22:29:10.109 W/Conscrypt( 5698): 	at com.google.android.gms.org.conscrypt.ConscryptFileDescriptorSocket.setSoWriteTimeout(:com.google.android.gms@225014047@22.50.14 (190800-499278674):0)
+05-25 22:29:10.161 W/GLSUser ( 5698): [AppCertManager] Exception while requesting key: 
+05-25 22:29:10.161 W/GLSUser ( 5698): java.io.IOException: Invalid device key response.
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at nnx.b(:com.google.android.gms@225014047@22.50.14 (190800-499278674):41)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at nnv.b(:com.google.android.gms@225014047@22.50.14 (190800-499278674):2)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at nnq.a(:com.google.android.gms@225014047@22.50.14 (190800-499278674):0)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at nnt.a(:com.google.android.gms@225014047@22.50.14 (190800-499278674):5)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at ldq.call(:com.google.android.gms@225014047@22.50.14 (190800-499278674):13)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at aalr.c(:com.google.android.gms@225014047@22.50.14 (190800-499278674):6)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at aalr.run(:com.google.android.gms@225014047@22.50.14 (190800-499278674):7)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at aaqv.run(:com.google.android.gms@225014047@22.50.14 (190800-499278674):0)
+05-25 22:29:10.161 W/GLSUser ( 5698): 	at java.lang.Thread.run(Thread.java:920)
+05-25 22:29:10.165 I/NetworkScheduler.Stats( 5698): Task com.google.android.gms/com.google.android.gms.auth.account.be.legacy.AuthCronService finished executing. cause:9 result: 3 elapsed_millis: 1096 uptime_millis: 1096 exec_start_elapsed_seconds: 2726 [CONTEXT service_id=218 ]
+05-25 22:29:17.936 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:29:19.204 W/id.gms.unstabl( 6616): Reducing the number of considered missed Gc histogram windows from 106 to 100
+05-25 22:29:20.049 W/UriGrantsManagerService(  572): No permission grants found for com.google.android.apps.photos
+05-25 22:29:20.050 W/UriGrantsManagerService(  572): No permission grants found for com.google.android.apps.photos
+05-25 22:29:20.059 D/CompatibilityChangeReporter(  572): Compat change id reported: 149924527; UID 10117; state: ENABLED
+05-25 22:29:20.059 D/CompatibilityChangeReporter(  572): Compat change id reported: 132649864; UID 10117; state: DISABLED
+05-25 22:29:20.059 D/CompatibilityChangeReporter(  572): Compat change id reported: 182734110; UID 10117; state: ENABLED
+05-25 22:29:20.072 W/oid.apps.photo( 5426): Reducing the number of considered missed Gc histogram windows from 260 to 100
+05-25 22:29:20.102 W/UriGrantsManagerService(  572): No permission grants found for com.google.android.apps.photos
+05-25 22:29:20.102 W/UriGrantsManagerService(  572): No permission grants found for com.google.android.apps.photos
+05-25 22:29:20.155 W/UriGrantsManagerService(  572): No permission grants found for com.google.android.apps.photos
+05-25 22:29:20.155 W/UriGrantsManagerService(  572): No permission grants found for com.google.android.apps.photos
+05-25 22:29:25.872 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:29:30.367 D/EGL_emulation(  854): app_time_stats: avg=30349.40ms min=30349.40ms max=30349.40ms count=1
+05-25 22:29:33.808 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:29:39.094 I/GmscoreIpa( 5768): Starting mediastore instant index [CONTEXT service_id=255 ]
+05-25 22:29:39.106 D/CompatibilityChangeReporter(  572): Compat change id reported: 149924527; UID 10101; state: ENABLED
+05-25 22:29:39.106 D/CompatibilityChangeReporter(  572): Compat change id reported: 132649864; UID 10101; state: DISABLED
+05-25 22:29:39.107 D/CompatibilityChangeReporter(  572): Compat change id reported: 182734110; UID 10101; state: ENABLED
+05-25 22:29:41.744 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:29:46.655 W/InputManager-JNI(  572): Input channel object 'cceeeb0 PopupWindow:aa41491 (client)' was disposed without first being removed with the input manager!
+05-25 22:29:49.680 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:29:57.872 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:30:00.020 D/EGL_emulation(  854): app_time_stats: avg=29652.08ms min=29652.08ms max=29652.08ms count=1
+05-25 22:30:05.808 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:30:05.913 D/WifiNl80211Manager(  572): Scan result ready event
+05-25 22:30:05.913 D/WifiNative(  572): Scan result ready event
+05-25 22:30:09.543 E/android.hardware.power.stats@1.0-service-mock(  385): Failed to getEnergyData
+05-25 22:30:10.366 D/EGL_emulation(  854): app_time_stats: avg=10346.53ms min=10346.53ms max=10346.53ms count=1
+05-25 22:30:13.745 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:30:21.680 I/wpa_supplicant(  828): wlan0: CTRL-EVENT-BEACON-LOSS 
+05-25 22:30:25.876 I/logd    (    0): logdr: UID=2000 GID=2000 PID=7632 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns

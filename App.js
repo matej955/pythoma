@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   Alert,
   Image,
@@ -13,7 +13,12 @@ import {
   Text,
   TextInput,
   View,
+  LayoutAnimation,
+  PanResponder,
+  UIManager,
 } from "react-native";
+import { Animated } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Svg, { Circle, Ellipse, G, Line, Path } from "react-native-svg";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
@@ -27,7 +32,15 @@ import {
   logout,
   registerWithEmail,
   sendCommunityMessage,
-  subscribeToCommunityMessages,
+  getCommunityMessagesCount,
+  fetchLatestCommunityMessages,
+  fetchCommunityMessagesBefore,
+  subscribeToNewCommunityMessages,
+  getUserActivePrograms,
+  getUserSubscription,
+  uploadFileAsync,
+  toggleMessageLike,
+  getLikesCount,
 } from "./firebaseConfig";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -136,6 +149,432 @@ const navItems = [
   { key: "profile", label: "Profil", icon: "P" },
 ];
 
+const UPLOAD_QUEUE_KEY = "pythoma_upload_queue_v2";
+const UPLOAD_MODE_KEY = "pythoma_upload_mode_v1";
+const MAX_UPLOAD_ATTEMPTS = 5;
+const BACKOFF_BASE_MS = 1200;
+const BACKOFF_MAX_MS = 30000;
+const UPLOAD_CONCURRENCY = {
+  wifi: 4,
+  ethernet: 4,
+  cellular: 1,
+  unknown: 2,
+  default: 2,
+};
+
+const UPLOAD_PENDING_STATUSES = new Set(["queued", "uploading"]);
+const RECIPE_REQUIRED_SUBSCRIPTION = "Wellness";
+const PROGRAM_REQUIRED_SUBSCRIPTION = "Training";
+
+function normalizeSubscriptionValue(value) {
+  if (!value) return "";
+  if (Array.isArray(value)) return value.map(normalizeSubscriptionValue).join(" ");
+  if (typeof value === "object") {
+    const entitlementKeys = Object.entries(value)
+      .filter(([, entry]) => entry === true)
+      .map(([key]) => key);
+    return normalizeSubscriptionValue([
+      ...entitlementKeys,
+      value.type,
+      value.plan,
+      value.tier,
+      value.name,
+      value.productId,
+      value.subscriptionType,
+      value.status,
+    ]);
+  }
+  return String(value).trim().toLowerCase();
+}
+
+function isSubscriptionRecordActive(record) {
+  if (!record) return false;
+  if (record.subscriptionActive === true || record.hasSubscription === true || record.isSubscribed === true || record.active === true) return true;
+  if (record.purchased === true || normalizeSubscriptionValue(record.purchaseStatus).includes("purchased")) return true;
+
+  const status = normalizeSubscriptionValue(record.subscriptionStatus || record.status || record.state || record.subscription?.status);
+  return ["active", "trialing", "paid", "subscribed", "valid", "purchased"].some((activeStatus) => status.includes(activeStatus));
+}
+
+function getRecipeRequiredSubscription(recipe) {
+  return recipe?.requiredSubscription || recipe?.meta?.requiredSubscription || RECIPE_REQUIRED_SUBSCRIPTION;
+}
+
+function hasRequiredSubscription(record, requiredSubscription) {
+  if (!isSubscriptionRecordActive(record)) return false;
+  const planText = normalizeSubscriptionValue([
+    record.subscriptionType,
+    record.plan,
+    record.tier,
+    record.productId,
+    record.entitlements,
+    record.subscription,
+  ]);
+  const requiredPlan = normalizeSubscriptionValue(requiredSubscription);
+  return !planText || [requiredPlan, "premium", "all", "full"].some((token) => token && planText.includes(token));
+}
+
+function hasRecipeSubscription(record, requiredSubscription = RECIPE_REQUIRED_SUBSCRIPTION) {
+  return hasRequiredSubscription(record, requiredSubscription);
+}
+
+function getProgramRequiredSubscription(program) {
+  return program?.requiredSubscription || program?.meta?.requiredSubscription || PROGRAM_REQUIRED_SUBSCRIPTION;
+}
+
+function hasProgramSubscription(record, requiredSubscription = PROGRAM_REQUIRED_SUBSCRIPTION) {
+  return hasRequiredSubscription(record, requiredSubscription);
+}
+
+function getRecipeText(recipe) {
+  const recipeKey = recipe?.recipeId || recipe?.title || recipe?.meta?.title || "";
+  const catalogRecipe = potions.find((potion) => potion.title === recipeKey);
+  const meta = { ...(catalogRecipe || {}), ...(recipe?.meta || {}), ...(recipe || {}) };
+  return {
+    title: meta.title || recipeKey || "Recipe",
+    image: meta.image || meta.img || image.smoothie,
+    timing: meta.timing || "",
+    ingredients: meta.ingredients || [],
+    preparation: meta.preparation || meta.recipe || meta.text || meta.body || "",
+    benefits: meta.benefits || "",
+  };
+}
+
+function getProgramText(program) {
+  const programKey = program?.programId || program?.title || program?.meta?.title || "";
+  const catalogProgram = allPrograms.find((item) => item.title === programKey);
+  const meta = { ...(catalogProgram || {}), ...(program?.meta || {}), ...(program || {}) };
+  return {
+    title: meta.title || meta.name || programKey || "Program",
+    image: meta.image || meta.img || meta.imageUrl || image.glutes,
+    duration: meta.weeks || meta.duration || meta.length || "",
+    level: meta.level || "",
+    progressPercent: meta.progressPercent ?? meta.progress ?? meta.percent ?? meta.completed ?? "",
+    description: meta.description || meta.text || meta.body || "Detalji programa nisu dostupni.",
+  };
+}
+
+function backoffDelayForAttempt(attempt) {
+  const jitter = Math.floor(Math.random() * 500);
+  return Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, Math.max(attempt - 1, 0))) + jitter;
+}
+
+function sanitizeUploadQueue(rawItems) {
+  if (!Array.isArray(rawItems)) return [];
+  return rawItems
+    .filter((item) => item && item.id && item.uri)
+    .map((item) => ({
+      ...item,
+      attempts: Number.isFinite(item.attempts) ? item.attempts : 0,
+      progress: Number.isFinite(item.progress) ? item.progress : 0,
+      status: item.status === "uploading" ? "queued" : item.status || "queued",
+    }));
+}
+
+async function readNetworkType() {
+  try {
+    let NetInfo = null;
+    try {
+      NetInfo = eval("require")("@react-native-community/netinfo");
+    } catch (e) {
+      NetInfo = null;
+    }
+    if (NetInfo?.fetch) {
+      const state = await NetInfo.fetch();
+      if (state?.isConnected === false) return "none";
+      return state?.type || "unknown";
+    }
+  } catch (error) {
+    // Optional dependency fallback below.
+  }
+
+  if (Platform.OS === "web" && typeof navigator !== "undefined") {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection?.type) return connection.type;
+    if (connection?.effectiveType && /2g|3g|4g|5g/.test(connection.effectiveType)) return "cellular";
+  }
+
+  return "unknown";
+}
+
+function concurrencyForUploadMode(mode, networkType) {
+  if (mode === "fast") return 4;
+  if (mode === "dataSaver") return 1;
+  if (networkType === "none") return 0;
+  return UPLOAD_CONCURRENCY[networkType] || UPLOAD_CONCURRENCY.default;
+}
+
+function getUploadErrorMessage(error) {
+  return error?.message || error?.code || String(error || "Upload failed");
+}
+
+function usePersistentUploadQueue() {
+  const [items, setItems] = useState([]);
+  const [mode, setModeState] = useState("auto");
+  const [networkType, setNetworkType] = useState("unknown");
+  const queueRef = useRef([]);
+  const modeRef = useRef("auto");
+  const activeRef = useRef(false);
+  const uploadTasksRef = useRef({});
+  const waitersRef = useRef([]);
+  const timerRef = useRef(null);
+
+  function notifyWaiters() {
+    if (!waitersRef.current.length) return;
+    waitersRef.current = waitersRef.current.filter((waiter) => {
+      const pending = queueRef.current.some((item) => {
+        const inScope = !waiter.ids || waiter.ids.includes(item.id);
+        return inScope && UPLOAD_PENDING_STATUSES.has(item.status);
+      });
+      if (!pending) waiter.resolve();
+      return pending;
+    });
+  }
+
+  async function persistQueue(nextQueue) {
+    try {
+      await AsyncStorage.setItem(UPLOAD_QUEUE_KEY, JSON.stringify(nextQueue));
+    } catch (error) {
+      // Queue persistence should never block the user from uploading.
+    }
+  }
+
+  function replaceQueue(updater) {
+    const nextQueue = typeof updater === "function" ? updater(queueRef.current) : updater;
+    const cleanQueue = sanitizeUploadQueue(nextQueue);
+    queueRef.current = cleanQueue;
+    setItems(cleanQueue);
+    persistQueue(cleanQueue);
+    notifyWaiters();
+  }
+
+  function updateQueueItem(id, updater) {
+    replaceQueue((current) =>
+      current.map((item) => {
+        if (item.id !== id) return item;
+        return typeof updater === "function" ? updater(item) : { ...item, ...updater };
+      }),
+    );
+  }
+
+  function scheduleProcess(delay = 0) {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      processUploadQueue();
+    }, Math.max(delay, 0));
+  }
+
+  async function uploadOne(item) {
+    try {
+      updateQueueItem(item.id, { status: "uploading", error: "", progress: item.progress || 0, startedAt: Date.now() });
+      const promise = uploadFileAsync(item.uri, (progress) => {
+        updateQueueItem(item.id, { status: "uploading", progress });
+      });
+      uploadTasksRef.current[item.id] = promise;
+      const { url, path } = await promise;
+      delete uploadTasksRef.current[item.id];
+      updateQueueItem(item.id, {
+        status: "uploaded",
+        url,
+        storagePath: path,
+        progress: 100,
+        error: "",
+        nextRetryAt: null,
+        uploadedAt: Date.now(),
+      });
+    } catch (error) {
+      delete uploadTasksRef.current[item.id];
+      if (!queueRef.current.some((queuedItem) => queuedItem.id === item.id)) return;
+
+      const previous = queueRef.current.find((queuedItem) => queuedItem.id === item.id) || item;
+      const attempts = (previous.attempts || 0) + 1;
+      if (attempts >= MAX_UPLOAD_ATTEMPTS) {
+        updateQueueItem(item.id, {
+          status: "failed",
+          attempts,
+          progress: 0,
+          error: getUploadErrorMessage(error),
+          failedAt: Date.now(),
+          nextRetryAt: null,
+        });
+        return;
+      }
+
+      const nextRetryAt = Date.now() + backoffDelayForAttempt(attempts);
+      updateQueueItem(item.id, {
+        status: "queued",
+        attempts,
+        progress: 0,
+        error: getUploadErrorMessage(error),
+        nextRetryAt,
+      });
+      scheduleProcess(nextRetryAt - Date.now());
+    }
+  }
+
+  async function processUploadQueue() {
+    if (activeRef.current) return;
+    activeRef.current = true;
+
+    try {
+      while (true) {
+        const type = await readNetworkType();
+        setNetworkType(type);
+        const concurrency = concurrencyForUploadMode(modeRef.current, type);
+        if (concurrency <= 0) break;
+
+        const now = Date.now();
+        const readyItems = queueRef.current
+          .filter((item) => item.status === "queued" && (!item.nextRetryAt || item.nextRetryAt <= now))
+          .slice(0, concurrency);
+
+        if (!readyItems.length) {
+          const nextRetryAt = queueRef.current
+            .filter((item) => item.status === "queued" && item.nextRetryAt)
+            .reduce((soonest, item) => Math.min(soonest, item.nextRetryAt), Number.POSITIVE_INFINITY);
+          if (Number.isFinite(nextRetryAt)) scheduleProcess(nextRetryAt - now);
+          break;
+        }
+
+        await Promise.all(readyItems.map((item) => uploadOne(item)));
+      }
+    } finally {
+      activeRef.current = false;
+      notifyWaiters();
+    }
+  }
+
+  function enqueue(attachment) {
+    if (!attachment?.id || !attachment?.uri) return;
+    if (queueRef.current.some((item) => item.id === attachment.id)) return;
+    replaceQueue((current) => [
+      ...current,
+      {
+        id: attachment.id,
+        uri: attachment.uri,
+        type: attachment.type || "image",
+        status: "queued",
+        attempts: 0,
+        progress: 0,
+        createdAt: Date.now(),
+      },
+    ]);
+    scheduleProcess();
+  }
+
+  function remove(ids) {
+    const idList = Array.isArray(ids) ? ids : [ids];
+    idList.forEach((id) => {
+      const task = uploadTasksRef.current[id];
+      if (task?.cancel) task.cancel();
+      delete uploadTasksRef.current[id];
+    });
+    replaceQueue((current) => current.filter((item) => !idList.includes(item.id)));
+  }
+
+  function retry(id) {
+    updateQueueItem(id, {
+      status: "queued",
+      attempts: 0,
+      progress: 0,
+      error: "",
+      nextRetryAt: null,
+      failedAt: null,
+    });
+    scheduleProcess();
+  }
+
+  function waitForUploadsComplete(ids) {
+    const idList = ids?.length ? ids : null;
+    const hasPending = queueRef.current.some((item) => {
+      const inScope = !idList || idList.includes(item.id);
+      return inScope && UPLOAD_PENDING_STATUSES.has(item.status);
+    });
+    if (!hasPending) return Promise.resolve();
+    return new Promise((resolve) => waitersRef.current.push({ ids: idList, resolve }));
+  }
+
+  function getItem(id) {
+    return queueRef.current.find((item) => item.id === id) || null;
+  }
+
+  async function setMode(nextMode) {
+    modeRef.current = nextMode;
+    setModeState(nextMode);
+    try {
+      await AsyncStorage.setItem(UPLOAD_MODE_KEY, nextMode);
+    } catch (error) {
+      // Ignore mode persistence errors.
+    }
+    scheduleProcess();
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe = null;
+
+    (async () => {
+      try {
+        const [storedQueue, storedMode] = await Promise.all([
+          AsyncStorage.getItem(UPLOAD_QUEUE_KEY),
+          AsyncStorage.getItem(UPLOAD_MODE_KEY),
+        ]);
+        if (cancelled) return;
+
+        const nextMode = ["auto", "fast", "dataSaver"].includes(storedMode) ? storedMode : "auto";
+        modeRef.current = nextMode;
+        setModeState(nextMode);
+
+        const parsedQueue = storedQueue ? JSON.parse(storedQueue) : [];
+        replaceQueue(sanitizeUploadQueue(parsedQueue));
+        scheduleProcess();
+      } catch (error) {
+        replaceQueue([]);
+      }
+    })();
+
+    try {
+      let NetInfo = null;
+      try {
+        NetInfo = eval("require")("@react-native-community/netinfo");
+      } catch (e) {
+        NetInfo = null;
+      }
+      if (NetInfo?.addEventListener) {
+        unsubscribe = NetInfo.addEventListener((state) => {
+          const type = state?.isConnected === false ? "none" : state?.type || "unknown";
+          setNetworkType(type);
+          if (type !== "none") scheduleProcess();
+        });
+      }
+    } catch (error) {
+      // Optional dependency fallback.
+    }
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const pendingCount = items.filter((item) => UPLOAD_PENDING_STATUSES.has(item.status)).length;
+
+  return {
+    items,
+    mode,
+    networkType,
+    pendingCount,
+    enqueue,
+    remove,
+    retry,
+    waitForUploadsComplete,
+    getItem,
+    setMode,
+  };
+}
+
 function profileNameFromEmail(email) {
   if (!email) return "Ratnica";
   const localPart = email.split("@")[0] || "Ratnica";
@@ -150,9 +589,17 @@ function profileNameFromUser({ displayName, email, fallback }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
   const [session, setSession] = useState(null);
   const [authMode, setAuthMode] = useState("welcome");
   const [screen, setScreen] = useState("home");
+  const [screenParams, setScreenParams] = useState(null);
+  const uploadQueue = usePersistentUploadQueue();
   const [history, setHistory] = useState(["home"]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [trainingTab, setTrainingTab] = useState("Svi programi");
@@ -175,6 +622,7 @@ export default function App() {
           type: "firebase",
           name: profileNameFromUser({ displayName: credential.user.displayName, email: credential.user.email }),
           email: credential.user.email,
+          uid: credential.user.uid,
         });
       } catch (error) {
         Alert.alert("Google sign in", error.message);
@@ -209,6 +657,7 @@ export default function App() {
         type: "firebase",
         name: profileNameFromUser({ displayName: credential.user.displayName, email: credential.user.email }),
         email: credential.user.email,
+        uid: credential.user.uid,
       });
     } catch (error) {
       if (isErrorWithCode(error)) {
@@ -240,7 +689,10 @@ export default function App() {
   }, [session]);
 
   function navigate(next) {
+    // support optional params: navigate(name, params)
+    const params = arguments[1];
     setScreen(next);
+    setScreenParams(params || null);
     setHistory((current) => [...current, next]);
     setDrawerOpen(false);
   }
@@ -249,10 +701,12 @@ export default function App() {
     setHistory((current) => {
       if (current.length <= 1) {
         setScreen("home");
+        setScreenParams(null);
         return ["home"];
       }
       const nextHistory = current.slice(0, -1);
       setScreen(nextHistory[nextHistory.length - 1]);
+      setScreenParams(null);
       return nextHistory;
     });
   }
@@ -296,10 +750,13 @@ export default function App() {
               message={message}
               setMessage={setMessage}
               goBack={goBack}
+              go={navigate}
               session={session}
               profile={profile}
+              uploadQueue={uploadQueue}
             />
           )}
+          {screen === "program" && <ProgramDetailScreen program={screenParams} goBack={goBack} />}
           {screen === "wellness" && <WellnessScreen goBack={goBack} />}
           {screen === "profile" && <ProfileScreen profile={profile} setProfile={setProfile} goBack={goBack} onLogout={handleLogout} />}
         </ScrollView>
@@ -332,6 +789,7 @@ function AuthScreen({ mode, setMode, onGuest, onAuth, onGoogle, request }) {
         type: "firebase",
         name: profileNameFromUser({ displayName: credential.user.displayName, email: credential.user.email, fallback: name }),
         email: credential.user.email,
+        uid: credential.user.uid,
       });
     } catch (error) {
       Alert.alert(
@@ -457,36 +915,375 @@ function formatMessageTime(createdAt) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function CommunityScreen({ tab, setTab, message, setMessage, goBack, session, profile }) {
+function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session, profile, uploadQueue }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(true);
   const [chatError, setChatError] = useState("");
   const [sending, setSending] = useState(false);
+  const [lastVisible, setLastVisible] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [attachModalOpen, setAttachModalOpen] = useState(false);
+  const [recipePickerOpen, setRecipePickerOpen] = useState(false);
+  const [localMessage, setLocalMessage] = useState(message || "");
+  const [openProgram, setOpenProgram] = useState(null);
+  const [openRecipe, setOpenRecipe] = useState(null);
+  const [programAccess, setProgramAccess] = useState({ loading: false, checked: false, hasAccess: false });
+  const [recipeAccess, setRecipeAccess] = useState({ loading: false, checked: false, hasAccess: false });
+  const [likes, setLikes] = useState({});
+  const [likesCounts, setLikesCounts] = useState({});
+  const [imageViewer, setImageViewer] = useState({ visible: false, images: [], index: 0 });
+
+  function openImageViewer(images, index) {
+    setImageViewer({ visible: true, images: images || [], index: index || 0 });
+  }
+
+  function closeImageViewer() {
+    setImageViewer({ visible: false, images: [], index: 0 });
+  }
+
+  useEffect(() => {
+    setAttachments((current) => {
+      const byId = new Map(uploadQueue.items.map((item) => [item.id, item]));
+      const currentIds = new Set(current.map((attachment) => attachment.id));
+      const nextAttachments = current.map((attachment) => {
+        const queued = byId.get(attachment.id);
+        if (!queued) return attachment;
+        return {
+          ...attachment,
+          uri: attachment.uri || queued.uri,
+          url: queued.url || attachment.url,
+          storagePath: queued.storagePath || attachment.storagePath,
+          uploading: queued.status === "queued" || queued.status === "uploading",
+          uploadFailed: queued.status === "failed",
+          progress: queued.progress || 0,
+          uploadError: queued.error || "",
+          attempts: queued.attempts || 0,
+        };
+      });
+
+      uploadQueue.items.forEach((item) => {
+        if (!currentIds.has(item.id)) {
+          nextAttachments.push({
+            id: item.id,
+            type: item.type || "image",
+            uri: item.uri,
+            url: item.url,
+            storagePath: item.storagePath,
+            uploading: item.status === "queued" || item.status === "uploading",
+            uploadFailed: item.status === "failed",
+            progress: item.progress || 0,
+            uploadError: item.error || "",
+            attempts: item.attempts || 0,
+          });
+        }
+      });
+
+      return nextAttachments;
+    });
+  }, [uploadQueue.items]);
+
   const posts = communityPosts.filter((post) => post.tab === tab);
   const isChat = tab === "Chat";
 
   useEffect(() => {
     if (!isChat) return undefined;
 
+    let unsubNew = null;
+    let cancelled = false;
     setChatLoading(true);
-    const unsubscribe = subscribeToCommunityMessages(
-      (messages) => {
-        setChatMessages(messages);
-        setChatError("");
-        setChatLoading(false);
-      },
-      (error) => {
-        setChatError(error.message);
-        setChatLoading(false);
-      },
-    );
 
-    return unsubscribe;
+    (async () => {
+      try {
+        const total = await getCommunityMessagesCount();
+        const { messages, lastVisible: last } = await fetchLatestCommunityMessages(20);
+        if (cancelled) return;
+        setChatMessages(messages);
+        // fetch likes counts for loaded messages (page)
+        (async () => {
+          try {
+            const counts = {};
+            await Promise.all(
+              messages.map(async (m) => {
+                try {
+                  counts[m.id] = await getLikesCount(m.id);
+                } catch (err) {
+                  counts[m.id] = 0;
+                }
+              }),
+            );
+            setLikesCounts(counts);
+          } catch (err) {
+            // ignore
+          }
+        })();
+        setLastVisible(last);
+        setHasMore(!!last && total > messages.length);
+        setChatError("");
+      } catch (error) {
+        setChatError(error.message);
+      } finally {
+        setChatLoading(false);
+      }
+
+      // subscribe to newest message only (realtime append)
+      unsubNew = subscribeToNewCommunityMessages(
+        (newMsg) => {
+          setChatMessages((current) => {
+            if (current.some((m) => m.id === newMsg.id)) return current;
+            return [...current, newMsg];
+          });
+        },
+        (err) => {
+          console.log("subscribe new message error", err);
+        },
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+      if (unsubNew) unsubNew();
+      // discard messages from device when leaving community screen
+      setChatMessages([]);
+      setLastVisible(null);
+      setHasMore(false);
+    };
   }, [isChat]);
 
+  useEffect(() => {
+    if (!openRecipe) {
+      setRecipeAccess({ loading: false, checked: false, hasAccess: false });
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function checkRecipeAccess() {
+      const requiredSubscription = getRecipeRequiredSubscription(openRecipe);
+      const localRecords = [profile, session, profile?.subscription, session?.subscription].filter(Boolean);
+      if (localRecords.some((record) => hasRecipeSubscription(record, requiredSubscription))) {
+        setRecipeAccess({ loading: false, checked: true, hasAccess: true });
+        return;
+      }
+
+      if (session?.type !== "firebase") {
+        setRecipeAccess({ loading: false, checked: true, hasAccess: false });
+        return;
+      }
+
+      setRecipeAccess({ loading: true, checked: false, hasAccess: false });
+      try {
+        const subscriptionRecords = await getUserSubscription({ uid: session?.uid, email: session?.email || profile?.email });
+        if (!cancelled) {
+          setRecipeAccess({
+            loading: false,
+            checked: true,
+            hasAccess: subscriptionRecords.some((record) => hasRecipeSubscription(record, requiredSubscription)),
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRecipeAccess({ loading: false, checked: true, hasAccess: false });
+        }
+      }
+    }
+
+    checkRecipeAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openRecipe, profile, session]);
+
+  useEffect(() => {
+    if (!openProgram) {
+      setProgramAccess({ loading: false, checked: false, hasAccess: false });
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function checkProgramAccess() {
+      const requiredSubscription = getProgramRequiredSubscription(openProgram);
+      const localRecords = [profile, session, profile?.subscription, session?.subscription].filter(Boolean);
+      if (localRecords.some((record) => hasProgramSubscription(record, requiredSubscription))) {
+        setProgramAccess({ loading: false, checked: true, hasAccess: true });
+        return;
+      }
+
+      if (session?.type !== "firebase") {
+        setProgramAccess({ loading: false, checked: true, hasAccess: false });
+        return;
+      }
+
+      setProgramAccess({ loading: true, checked: false, hasAccess: false });
+      try {
+        const subscriptionRecords = await getUserSubscription({ uid: session?.uid, email: session?.email || profile?.email });
+        if (!cancelled) {
+          setProgramAccess({
+            loading: false,
+            checked: true,
+            hasAccess: subscriptionRecords.some((record) => hasProgramSubscription(record, requiredSubscription)),
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setProgramAccess({ loading: false, checked: true, hasAccess: false });
+        }
+      }
+    }
+
+    checkProgramAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openProgram, profile, session]);
+
+  async function loadOlderMessages() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const { messages: older, lastVisible: newLast, hasMore: more } = await fetchCommunityMessagesBefore(lastVisible, 20);
+      if (older && older.length) {
+        setChatMessages((current) => [...older, ...current]);
+        // fetch likes counts for newly loaded older messages
+        (async () => {
+          try {
+            const counts = {};
+            await Promise.all(
+              older.map(async (m) => {
+                try {
+                  counts[m.id] = await getLikesCount(m.id);
+                } catch (err) {
+                  counts[m.id] = 0;
+                }
+              }),
+            );
+            setLikesCounts((cur) => ({ ...counts, ...cur }));
+          } catch (err) {
+            // ignore
+          }
+        })();
+        setLastVisible(newLast);
+        setHasMore(more);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      setChatError(err.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function handlePickLibrary() {
+    setAttachModalOpen(false);
+    try {
+      const ImagePicker = require("expo-image-picker");
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Photo", "Permission to access photos is required.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions?.Images || ImagePicker.MediaType.Images, quality: 0.7 });
+      // handle both old (`cancelled`) and new (`canceled` + `assets`) API shapes
+      const canceled = result.cancelled === true || result.canceled === true;
+      if (canceled) return;
+      const uri = result.uri || (result.assets && result.assets[0] && result.assets[0].uri);
+      if (!uri) return;
+      const att = { id: `img-${Date.now()}`, type: "image", uri, uploading: true, progress: 0 };
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setAttachments((cur) => [...cur, att]);
+      uploadQueue.enqueue(att);
+    } catch (err) {
+      Alert.alert("Photo", "Image picker not available. Install expo-image-picker.");
+    }
+  }
+
+  async function handleTakePhoto() {
+    setAttachModalOpen(false);
+    try {
+      const ImagePicker = require("expo-image-picker");
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Camera", "Permission to access camera is required.");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions?.Images || ImagePicker.MediaType.Images, quality: 0.7 });
+      const canceled = result.cancelled === true || result.canceled === true;
+      if (canceled) return;
+      const uri = result.uri || (result.assets && result.assets[0] && result.assets[0].uri);
+      if (!uri) return;
+      const att = { id: `img-${Date.now()}`, type: "image", uri, uploading: true, progress: 0 };
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setAttachments((cur) => [...cur, att]);
+      uploadQueue.enqueue(att);
+    } catch (err) {
+      Alert.alert("Camera", "Camera not available. Install expo-image-picker/expo-camera.");
+    }
+  }
+
+  async function handleProgressShare() {
+    setAttachModalOpen(false);
+    try {
+      const identifier = session?.email || profile?.email || "";
+      const programs = await getUserActivePrograms(identifier);
+      if (!programs.length) {
+        Alert.alert("Progress share", "No active programs found to share.");
+        return;
+      }
+      // For simplicity pick first program as shareable progress snippet
+      const prog = programs[0];
+      // create a progress attachment instead of stuffing text into the input
+      const percent = prog.progress ?? prog.percent ?? prog.completed ?? 0;
+      const att = {
+        id: `prog-${Date.now()}`,
+        type: "progress",
+        programId: prog.id || prog.title,
+        title: prog.title || prog.name || "Program",
+        image: prog.img || prog.image || image.glutes,
+        userName: profile?.name || session?.name || "",
+        progressPercent: percent,
+        requiredSubscription: prog.requiredSubscription || PROGRAM_REQUIRED_SUBSCRIPTION,
+        meta: prog,
+      };
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setAttachments((cur) => [...cur, att]);
+      // also append a short summary in the textbox for context
+      const summary = `${att.title} - ${att.progressPercent}%`;
+      setLocalMessage((m) => (m ? `${m} ${summary}` : summary));
+    } catch (err) {
+      Alert.alert("Progress share", err.message);
+    }
+  }
+
+  function openRecipePicker() {
+    setAttachModalOpen(false);
+    setRecipePickerOpen(true);
+  }
+
+  function chooseRecipe(recipe) {
+    // attach recipe as an attachment (with thumbnail + watermark)
+    const att = {
+      id: `recipe-${Date.now()}`,
+      type: "recipe",
+      recipeId: recipe.title,
+      title: recipe.title,
+      image: recipe.image || recipe.img || image.smoothie,
+      requiredSubscription: recipe.requiredSubscription || RECIPE_REQUIRED_SUBSCRIPTION,
+      meta: recipe,
+    };
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAttachments((cur) => [...cur, att]);
+    setLocalMessage((m) => (m ? `${m} Recipe: ${recipe.title}` : `Recipe: ${recipe.title}`));
+    setRecipePickerOpen(false);
+  }
+
   async function sendMessage() {
-    const cleanMessage = message.trim();
-    if (!cleanMessage || sending) return;
+    const cleanMessage = (localMessage || "").trim();
+    if (!cleanMessage && attachments.length === 0) return;
     if (session?.type !== "firebase") {
       Alert.alert("Chat", "Prijavi se s emailom ili Google racunom za slanje poruka.");
       return;
@@ -494,19 +1291,103 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, session, pr
 
     setSending(true);
     try {
+      const imageIds = attachments.filter((att) => att.type === "image").map((att) => att.id);
+      await uploadQueue.waitForUploadsComplete(imageIds);
+
+      const finalAttachments = attachments
+        .map((att) => {
+          if (att.type === "image") {
+            const queued = uploadQueue.getItem(att.id);
+            const uploaded = queued || att;
+            if (uploaded.status === "failed" || att.uploadFailed) {
+              throw new Error("Jedna fotografija nije uploadana. Pokusaj ponovno ili je ukloni.");
+            }
+            if (uploaded.url) return { id: att.id, type: "image", url: uploaded.url, storagePath: uploaded.storagePath || null };
+            if (att.url) return { id: att.id, type: "image", url: att.url, storagePath: att.storagePath || null };
+            if (att.image) return { id: att.id, type: "image", url: att.image, storagePath: att.storagePath || null };
+            throw new Error("Pricekaj da upload fotografije zavrsi prije slanja.");
+          }
+          if (att.type === "recipe") {
+            return {
+              id: att.id,
+              type: "recipe",
+              recipeId: att.recipeId || att.meta?.id || att.title,
+              title: att.title,
+              image: att.image,
+              requiredSubscription: att.requiredSubscription || att.meta?.requiredSubscription || RECIPE_REQUIRED_SUBSCRIPTION,
+              meta: att.meta,
+            };
+          }
+          if (att.type === "progress") {
+            return {
+              id: att.id,
+              type: "progress",
+              programId: att.programId,
+              title: att.title,
+              image: att.image,
+              userName: att.userName,
+              progressPercent: att.progressPercent,
+              requiredSubscription: att.requiredSubscription || att.meta?.requiredSubscription || PROGRAM_REQUIRED_SUBSCRIPTION,
+              meta: att.meta,
+            };
+          }
+          return att;
+        })
+        .filter(Boolean);
+
       await sendCommunityMessage({
         text: cleanMessage,
+        attachments: finalAttachments,
         user: {
           name: profile.name || session.name,
           email: session.email,
         },
       });
-      setMessage("");
+
+      setLocalMessage("");
+      setAttachments([]);
+      uploadQueue.remove(imageIds);
     } catch (error) {
-      Alert.alert("Chat", error.message);
+      Alert.alert("Chat", error?.message || String(error));
     } finally {
       setSending(false);
     }
+  }
+
+  function removeAttachment(id) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    uploadQueue.remove(id);
+    setAttachments((cur) => cur.filter((a) => a.id !== id));
+  }
+
+  async function toggleLike(messageId) {
+    if (session?.type !== "firebase") {
+      Alert.alert("Like", "Please sign in to like posts.");
+      return;
+    }
+    try {
+      const res = await toggleMessageLike(messageId);
+      setLikes((cur) => ({ ...cur, [messageId]: res.liked }));
+      setLikesCounts((cur) => ({ ...cur, [messageId]: Math.max((cur[messageId] || 0) + (res.liked ? 1 : -1), 0) }));
+    } catch (err) {
+      Alert.alert("Like", err?.message || String(err));
+    }
+  }
+
+  function offerRecipeSubscription() {
+    const requiredSubscription = getRecipeRequiredSubscription(openRecipe);
+    Alert.alert(
+      `${requiredSubscription} subscription`,
+      `This shared recipe is included with the ${requiredSubscription} subscription. Purchase or restore that subscription to unlock the full recipe text.`,
+    );
+  }
+
+  function offerProgramSubscription() {
+    const requiredSubscription = getProgramRequiredSubscription(openProgram);
+    Alert.alert(
+      `${requiredSubscription} subscription`,
+      `This shared program update is included with the ${requiredSubscription} subscription. Purchase or restore that subscription to unlock the full update.`,
+    );
   }
 
   return (
@@ -521,6 +1402,11 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, session, pr
             {!chatLoading && !chatError && chatMessages.length === 0 && (
               <Text style={styles.chatStatus}>Budi prva koja salje poruku.</Text>
             )}
+            {hasMore && (
+              <Pressable style={styles.loadMore} onPress={loadOlderMessages} disabled={loadingMore}>
+                <Text style={styles.chatStatus}>{loadingMore ? "Ucitavam..." : "Ucitaj ranije poruke"}</Text>
+              </Pressable>
+            )}
             {chatMessages.map((post) => (
               <View key={post.id} style={styles.postCard}>
                 <View style={styles.avatar}>
@@ -532,6 +1418,43 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, session, pr
                     <Text style={styles.postTime}>{formatMessageTime(post.createdAt)}</Text>
                   </View>
                   <Text style={styles.postText}>{post.text}</Text>
+                  {/* render attachments inside messages */}
+                  {post.attachments && post.attachments.length > 0 && (
+                    <View style={{ marginTop: 8 }}>
+                      {post.attachments.map((att, i) => (
+                        <View key={att.id || i} style={{ marginBottom: 8 }}>
+                          {att.type === "image" && (
+                            <Pressable onPress={() => {
+                              const imgs = (post.attachments || []).filter((a) => a.type === "image").map((a) => a.url || a.image || a.uri);
+                              const current = att.url || att.image || att.uri;
+                              const idx = imgs.findIndex((u) => u === current);
+                              openImageViewer(imgs, idx >= 0 ? idx : 0);
+                            }}>
+                              <Image source={{ uri: att.uri || att.image || att.url }} style={styles.messageImage} />
+                            </Pressable>
+                          )}
+                          {att.type === "recipe" && (
+                            <Pressable onPress={() => setOpenRecipe(att)} style={styles.messageImageWrap}>
+                              <Image source={{ uri: att.image }} style={styles.messageImage} />
+                              <View style={styles.attachmentBadge}><Text style={styles.attachmentBadgeText}>Recipe</Text></View>
+                            </Pressable>
+                          )}
+                          {att.type === "progress" && (
+                            <View style={styles.progressMiniWrap}>
+                              <Pressable style={styles.messageImageWrap} onPress={() => setOpenProgram(att)}>
+                                <Image source={{ uri: att.image }} style={styles.messageImage} />
+                                <View style={styles.attachmentBadge}><Text style={styles.attachmentBadgeText}>Progress</Text></View>
+                              </Pressable>
+                              <Pressable style={styles.progressLike} onPress={() => toggleLike(post.id)}>
+                                <Text style={{ color: likes[post.id] ? colors.danger : colors.muted }}>{likes[post.id] ? "♥" : "♡"}</Text>
+                              </Pressable>
+                              <Text style={styles.likesCount}>{likesCounts[post.id] || 0}</Text>
+                            </View>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
               </View>
             ))}
@@ -561,21 +1484,281 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, session, pr
           </>
         )}
       </View>
+
       {isChat && (
-        <View style={styles.messageBar}>
-          <TextInput
-            value={message}
-            onChangeText={setMessage}
-            placeholder="Napisi poruku..."
-            placeholderTextColor={colors.muted}
-            style={styles.messageInput}
-          />
-          <Pressable style={[styles.sendCircle, sending && styles.disabledButton]} onPress={sendMessage} disabled={sending}>
-            <Text style={styles.sendText}>{sending ? "..." : "Go"}</Text>
-          </Pressable>
-        </View>
+        <>
+          <View style={styles.messageBar}>
+            <Pressable style={styles.attachButton} onPress={() => setAttachModalOpen(true)}>
+              <Text style={styles.attachText}>+</Text>
+            </Pressable>
+              <TextInput
+                value={localMessage}
+                onChangeText={setLocalMessage}
+                placeholder="Napisi poruku..."
+                placeholderTextColor={colors.muted}
+                style={styles.messageInput}
+              />
+            <Pressable style={[styles.sendCircle, sending && styles.disabledButton]} onPress={sendMessage} disabled={sending}>
+              <Text style={styles.sendText}>{sending ? "..." : "✈"}</Text>
+            </Pressable>
+          </View>
+
+            {/* attachments preview above message bar */}
+            {attachments.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsPreview} contentContainerStyle={{ gap: 8 }}>
+                {attachments.map((att) => (
+                  <View key={att.id} style={styles.attachmentThumbWrap}>
+                    {att.type === "image" ? (
+                      <Pressable onPress={() => {
+                        const imgs = attachments.filter((a) => a.type === "image").map((a) => a.url || a.image || a.uri);
+                        const current = att.url || att.image || att.uri;
+                        const idx = imgs.findIndex((u) => u === current);
+                        openImageViewer(imgs, idx >= 0 ? idx : 0);
+                      }}>
+                        <Image source={{ uri: att.uri || att.image || att.url }} style={styles.attachmentThumb} />
+                      </Pressable>
+                    ) : (
+                      <Image source={{ uri: att.uri || att.image || att.url }} style={styles.attachmentThumb} />
+                    )}
+                    <Pressable style={styles.attachmentRemove} onPress={() => removeAttachment(att.id)}>
+                      <Text style={styles.attachmentRemoveText}>×</Text>
+                    </Pressable>
+                    {(att.uploading || att.uploadFailed || att.url) && (
+                      <View style={styles.attachmentUploadingOverlay} pointerEvents={att.uploadFailed ? "auto" : "none"}>
+                        <Text style={styles.uploadProgressText}>{att.progress ? `${att.progress}%` : "…"}</Text>
+                      </View>
+                    )}
+                    {att.uploadFailed && (
+                      <Pressable style={styles.uploadRetryButtonFloating} onPress={() => uploadQueue.retry(att.id)}>
+                        <Text style={styles.uploadRetryText}>Retry</Text>
+                      </Pressable>
+                    )}
+                    {att.type === "recipe" && <View style={styles.attachmentBadge}><Text style={styles.attachmentBadgeText}>Recipe</Text></View>}
+                    {att.type === "progress" && <View style={styles.attachmentBadge}><Text style={styles.attachmentBadgeText}>Progress</Text></View>}
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+          <Modal visible={attachModalOpen} transparent animationType="fade" onRequestClose={() => setAttachModalOpen(false)}>
+            <Pressable style={styles.drawerShade} onPress={() => setAttachModalOpen(false)}>
+              <View style={[styles.drawer, { width: 300, margin: 40 }]}>
+                <Text style={styles.potionSectionTitle}>Dodaj u poruku</Text>
+                <Pressable style={{ paddingVertical: 12 }} onPress={handlePickLibrary}><Text>Photo from library</Text></Pressable>
+                <Pressable style={{ paddingVertical: 12 }} onPress={handleTakePhoto}><Text>Take photo</Text></Pressable>
+                <Pressable style={{ paddingVertical: 12 }} onPress={handleProgressShare}><Text>Progress share</Text></Pressable>
+                <Pressable style={{ paddingVertical: 12 }} onPress={openRecipePicker}><Text>Recipe</Text></Pressable>
+                <Text style={styles.uploadModeLabel}>Upload speed: {uploadQueue.networkType}</Text>
+                <View style={styles.uploadModeRow}>
+                  {[
+                    ["auto", "Auto"],
+                    ["fast", "Fast"],
+                    ["dataSaver", "Saver"],
+                  ].map(([value, label]) => (
+                    <Pressable
+                      key={value}
+                      style={[styles.uploadModePill, uploadQueue.mode === value && styles.uploadModePillActive]}
+                      onPress={() => uploadQueue.setMode(value)}
+                    >
+                      <Text style={[styles.uploadModeText, uploadQueue.mode === value && styles.uploadModeTextActive]}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            </Pressable>
+          </Modal>
+
+          <Modal visible={recipePickerOpen} transparent animationType="fade" onRequestClose={() => setRecipePickerOpen(false)}>
+            <Pressable style={styles.drawerShade} onPress={() => setRecipePickerOpen(false)}>
+              <View style={[styles.drawer, { width: 320, margin: 40 }]}>
+                <Text style={styles.potionSectionTitle}>Choose recipe</Text>
+                {potions.map((p) => (
+                  <Pressable key={p.title} style={{ paddingVertical: 12 }} onPress={() => chooseRecipe(p)}>
+                    <Text>{p.title}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Pressable>
+          </Modal>
+          {/* program detail modal */}
+          <Modal visible={!!openProgram} transparent animationType="slide" onRequestClose={() => setOpenProgram(null)}>
+            <Pressable style={styles.drawerShade} onPress={() => setOpenProgram(null)}>
+              <Pressable style={[styles.drawer, styles.recipeDrawer]}>
+                {openProgram && (
+                  <ProgramUpdateContent program={openProgram} access={programAccess} onSubscribe={offerProgramSubscription} />
+                )}
+              </Pressable>
+            </Pressable>
+          </Modal>
+
+          {/* recipe detail modal */}
+          <Modal visible={!!openRecipe} transparent animationType="slide" onRequestClose={() => setOpenRecipe(null)}>
+            <Pressable style={styles.drawerShade} onPress={() => setOpenRecipe(null)}>
+              <Pressable style={[styles.drawer, styles.recipeDrawer]}>
+                {openRecipe && (
+                  <RecipeDetailContent recipe={openRecipe} access={recipeAccess} onSubscribe={offerRecipeSubscription} />
+                )}
+              </Pressable>
+            </Pressable>
+          </Modal>
+          {/* full screen image viewer */}
+          <Modal visible={imageViewer.visible} transparent animationType="fade" onRequestClose={closeImageViewer}>
+            <FullScreenImageViewer
+              images={imageViewer.images}
+              index={imageViewer.index}
+              onClose={closeImageViewer}
+              onIndexChange={(index) => setImageViewer((current) => ({ ...current, index }))}
+            />
+          </Modal>
+        </>
       )}
     </>
+  );
+}
+
+function getTouchDistance(touches) {
+  if (!touches || touches.length < 2) return 0;
+  const [first, second] = touches;
+  const dx = first.pageX - second.pageX;
+  const dy = first.pageY - second.pageY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function FullScreenImageViewer({ images = [], index = 0, onClose, onIndexChange }) {
+  const safeImages = images.filter(Boolean);
+  const currentIndex = Math.min(Math.max(index, 0), Math.max(safeImages.length - 1, 0));
+  const currentImage = safeImages[currentIndex];
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const baseScaleRef = useRef(1);
+  const currentScaleRef = useRef(1);
+  const baseTranslateRef = useRef({ x: 0, y: 0 });
+  const pinchStartRef = useRef(0);
+
+  function resetImage(animated = true) {
+    baseScaleRef.current = 1;
+    currentScaleRef.current = 1;
+    baseTranslateRef.current = { x: 0, y: 0 };
+    const updates = [
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+    ];
+    if (animated) Animated.parallel(updates).start();
+    else {
+      scale.setValue(1);
+      translateX.setValue(0);
+      translateY.setValue(0);
+    }
+  }
+
+  function moveTo(nextIndex) {
+    if (nextIndex < 0 || nextIndex >= safeImages.length) {
+      resetImage();
+      return;
+    }
+    resetImage(false);
+    onIndexChange(nextIndex);
+  }
+
+  useEffect(() => {
+    resetImage(false);
+  }, [currentImage]);
+
+  const panResponder = useMemo(
+    () =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (event) => {
+        const touches = event.nativeEvent.touches || [];
+        pinchStartRef.current = getTouchDistance(touches);
+      },
+      onPanResponderMove: (event, gesture) => {
+        const touches = event.nativeEvent.touches || [];
+        if (touches.length >= 2) {
+          const nextDistance = getTouchDistance(touches);
+          if (!pinchStartRef.current) pinchStartRef.current = nextDistance;
+          const nextScale = Math.min(4, Math.max(1, baseScaleRef.current * (nextDistance / pinchStartRef.current)));
+          currentScaleRef.current = nextScale;
+          scale.setValue(nextScale);
+          return;
+        }
+
+        if (baseScaleRef.current > 1.05) {
+          translateX.setValue(baseTranslateRef.current.x + gesture.dx);
+          translateY.setValue(baseTranslateRef.current.y + gesture.dy);
+          return;
+        }
+
+        translateX.setValue(gesture.dx);
+        translateY.setValue(Math.max(gesture.dy, -40));
+      },
+      onPanResponderRelease: (event, gesture) => {
+        const touches = event.nativeEvent.touches || [];
+        if (touches.length >= 2) return;
+
+        const settledScale = Math.min(4, Math.max(1, currentScaleRef.current));
+        baseScaleRef.current = settledScale;
+        scale.setValue(settledScale);
+
+        if (settledScale > 1.05) {
+          baseTranslateRef.current = {
+            x: baseTranslateRef.current.x + gesture.dx,
+            y: baseTranslateRef.current.y + gesture.dy,
+          };
+          return;
+        }
+
+        if (gesture.dy > 110 && Math.abs(gesture.dy) > Math.abs(gesture.dx)) {
+          onClose();
+          return;
+        }
+
+        if (Math.abs(gesture.dx) > 70 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25) {
+          moveTo(gesture.dx < 0 ? currentIndex + 1 : currentIndex - 1);
+          return;
+        }
+
+        resetImage();
+      },
+      onPanResponderTerminate: () => resetImage(),
+    }),
+    [currentIndex, safeImages.length, onClose, onIndexChange],
+  );
+
+  if (!currentImage) {
+    return (
+      <View style={styles.viewerContainer}>
+        <Pressable style={styles.viewerClose} onPress={onClose}>
+          <Text style={styles.viewerCloseText}>x</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.viewerContainer} {...panResponder.panHandlers}>
+      <Animated.Image
+        source={{ uri: currentImage }}
+        style={[styles.viewerImage, { transform: [{ translateX }, { translateY }, { scale }] }]}
+      />
+      <Pressable style={styles.viewerClose} onPress={onClose}>
+        <Text style={styles.viewerCloseText}>x</Text>
+      </Pressable>
+      {safeImages.length > 1 && (
+        <>
+          <Pressable style={styles.viewerPrev} onPress={() => moveTo(currentIndex - 1)}>
+            <Text style={styles.viewerArrowText}>{"<"}</Text>
+          </Pressable>
+          <Pressable style={styles.viewerNext} onPress={() => moveTo(currentIndex + 1)}>
+            <Text style={styles.viewerArrowText}>{">"}</Text>
+          </Pressable>
+          <Text style={styles.viewerCounter}>{currentIndex + 1}/{safeImages.length}</Text>
+        </>
+      )}
+    </View>
   );
 }
 
@@ -623,6 +1806,90 @@ function PotionSection({ title, items }) {
         </Text>
       ))}
     </View>
+  );
+}
+
+function RecipeDetailContent({ recipe, access, onSubscribe }) {
+  const details = getRecipeText(recipe);
+  const requiredSubscription = getRecipeRequiredSubscription(recipe);
+  const ingredients = Array.isArray(details.ingredients)
+    ? details.ingredients
+    : String(details.ingredients || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+  return (
+    <>
+      <Image source={{ uri: recipe.image || details.image }} style={styles.recipeDetailImage} />
+      <Text style={styles.potionSectionTitle}>{recipe.title || details.title}</Text>
+      {access.loading && <Text style={styles.recipeGateText}>Provjeravam pretplatu...</Text>}
+      {!access.loading && access.hasAccess && (
+        <ScrollView style={styles.recipeDetailScroll} contentContainerStyle={styles.recipeDetailContent} nestedScrollEnabled showsVerticalScrollIndicator>
+          {!!details.timing && <Text style={styles.potionTiming}>{details.timing}</Text>}
+          {ingredients.length > 0 && <PotionSection title="Sastojci" items={ingredients} />}
+          {!!details.preparation && (
+            <>
+              <Text style={styles.potionSectionTitle}>Priprema</Text>
+              <Text style={styles.potionBody}>{details.preparation}</Text>
+            </>
+          )}
+          {!!details.benefits && (
+            <>
+              <Text style={styles.potionSectionTitle}>Benefiti</Text>
+              <Text style={styles.potionBody}>{details.benefits}</Text>
+            </>
+          )}
+        </ScrollView>
+      )}
+      {!access.loading && access.checked && !access.hasAccess && (
+        <View style={styles.subscriptionGate}>
+          <Text style={styles.recipeGateTitle}>{requiredSubscription} pretplata</Text>
+          <Text style={styles.recipeGateText}>Za otvaranje cijelog recepta potrebna je {requiredSubscription} pretplata.</Text>
+          <Pressable style={styles.subscriptionButton} onPress={onSubscribe}>
+            <Text style={styles.subscriptionButtonText}>Pogledaj pretplatu</Text>
+          </Pressable>
+        </View>
+      )}
+    </>
+  );
+}
+
+function ProgramUpdateContent({ program, access, onSubscribe }) {
+  const details = getProgramText(program);
+  const requiredSubscription = getProgramRequiredSubscription(program);
+  const hasProgress = details.progressPercent !== "" && details.progressPercent !== null && details.progressPercent !== undefined;
+  const progressLabel = `${details.progressPercent}${String(details.progressPercent).includes("%") ? "" : "%"}`;
+
+  return (
+    <>
+      <Image source={{ uri: program.image || details.image }} style={styles.recipeDetailImage} />
+      <Text style={styles.potionSectionTitle}>{program.title || details.title}</Text>
+      {access.loading && <Text style={styles.recipeGateText}>Provjeravam pretplatu...</Text>}
+      {!access.loading && access.hasAccess && (
+        <ScrollView style={styles.recipeDetailScroll} contentContainerStyle={styles.recipeDetailContent} nestedScrollEnabled showsVerticalScrollIndicator>
+          {!!details.duration && <Text style={styles.body}>{details.duration}</Text>}
+          {!!details.level && <Text style={styles.potionBody}>{details.level}</Text>}
+          {hasProgress && (
+            <>
+              <Text style={styles.potionSectionTitle}>Napredak</Text>
+              <Text style={styles.potionBody}>{progressLabel} dovrseno</Text>
+            </>
+          )}
+          <Text style={styles.potionSectionTitle}>Opis</Text>
+          <Text style={styles.potionBody}>{details.description}</Text>
+        </ScrollView>
+      )}
+      {!access.loading && access.checked && !access.hasAccess && (
+        <View style={styles.subscriptionGate}>
+          <Text style={styles.recipeGateTitle}>{requiredSubscription} pretplata</Text>
+          <Text style={styles.recipeGateText}>Za otvaranje cijelog programskog updatea potrebna je {requiredSubscription} pretplata.</Text>
+          <Pressable style={styles.subscriptionButton} onPress={onSubscribe}>
+            <Text style={styles.subscriptionButtonText}>Pogledaj pretplatu</Text>
+          </Pressable>
+        </View>
+      )}
+    </>
   );
 }
 
@@ -737,6 +2004,23 @@ function ScreenHeader({ title, right, compact, onBack, onRight }) {
         <Text style={styles.headerIcon}>{right || ""}</Text>
       </Pressable>
     </View>
+  );
+}
+
+function ProgramDetailScreen({ program, goBack }) {
+  const prog = program || {};
+  return (
+    <>
+      <ScreenHeader title={prog.title || "Program"} onBack={goBack} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
+        <Image source={{ uri: prog.img || prog.image || prog.imageUrl || image.glutes }} style={{ width: "100%", height: 220, borderRadius: 12, marginBottom: 12 }} />
+        <Text style={styles.potionSectionTitle}>{prog.title}</Text>
+        <Text style={styles.body}>{prog.weeks || prog.meta?.weeks || prog.meta?.duration || ""}</Text>
+        <Text style={styles.potionBody}>{prog.meta?.level || prog.level || ""}</Text>
+        <Text style={styles.potionSectionTitle}>Opis</Text>
+        <Text style={styles.potionBody}>{prog.meta?.description || prog.description || "Detalji programa nisu dostupni."}</Text>
+      </ScrollView>
+    </>
   );
 }
 
@@ -1083,6 +2367,9 @@ const styles = StyleSheet.create({
   },
   sendCircle: { width: 46, height: 46, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: colors.olive },
   sendText: { color: colors.white, fontSize: 12, fontWeight: "700" },
+  attachButton: { width: 46, height: 46, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line },
+  attachText: { color: colors.forest, fontSize: 22, fontWeight: "700" },
+  loadMore: { alignItems: "center", marginBottom: 8 },
   dailyCard: {
     minHeight: 194,
     borderWidth: 1,
@@ -1201,6 +2488,15 @@ const styles = StyleSheet.create({
   logoutText: { color: colors.white, fontWeight: "700" },
   drawerShade: { flex: 1, backgroundColor: "rgba(0,0,0,0.25)" },
   drawer: { width: 278, flex: 1, paddingTop: 58, paddingHorizontal: 18, backgroundColor: colors.paper },
+  recipeDrawer: {
+    flex: 0,
+    width: 320,
+    maxHeight: "82%",
+    margin: 40,
+    borderRadius: 18,
+    paddingTop: 18,
+    paddingBottom: 18,
+  },
   drawerItem: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, borderBottomWidth: 1, borderBottomColor: colors.line },
   drawerIcon: { color: colors.forest, width: 24, fontWeight: "700" },
   drawerText: { color: colors.ink, fontSize: 16 },
@@ -1227,4 +2523,49 @@ const styles = StyleSheet.create({
   navIcon: { color: colors.muted, fontSize: 15, fontWeight: "700" },
   navLabel: { color: colors.muted, fontSize: 10 },
   navActive: { color: colors.forest, fontWeight: "700" },
+  attachmentsPreview: { marginTop: 10, marginBottom: 6 },
+  attachmentThumbWrap: { width: 96, height: 96, borderRadius: 12, overflow: "hidden", marginRight: 8, position: "relative", backgroundColor: colors.card, shadowColor: colors.forest, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  attachmentThumb: { width: 96, height: 96, resizeMode: "cover" },
+  attachmentRemove: { width: 28, height: 28, borderRadius: 14, position: "absolute", top: -8, right: -8, alignItems: "center", justifyContent: "center", backgroundColor: colors.danger },
+  attachmentRemoveText: { color: colors.white, fontSize: 16, fontWeight: "700" },
+  attachmentBadge: { position: "absolute", left: 6, bottom: 6, backgroundColor: "rgba(0,0,0,0.5)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  attachmentBadgeText: { color: colors.white, fontSize: 10, fontWeight: "700" },
+  attachmentUploadingOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.38)", alignItems: "center", justifyContent: "center" },
+  uploadProgressText: { color: colors.white, fontWeight: "700" },
+  uploadRetryButtonFloating: { position: "absolute", right: 8, bottom: 8, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: colors.white },
+  uploadRetryText: { color: colors.danger, fontSize: 11, fontWeight: "700" },
+  uploadModeLabel: { color: colors.muted, fontSize: 12, marginTop: 14, marginBottom: 8 },
+  uploadModeRow: { flexDirection: "row", gap: 8 },
+  uploadModePill: { minHeight: 32, borderRadius: 999, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.card },
+  uploadModePillActive: { backgroundColor: colors.forest },
+  uploadModeText: { color: colors.ink, fontSize: 12, fontWeight: "700" },
+  uploadModeTextActive: { color: colors.white },
+  viewerContainer: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", alignItems: "center", justifyContent: "center" },
+  viewerImage: { width: "100%", height: "100%", resizeMode: "contain" },
+  viewerClose: { position: "absolute", top: 40, right: 20, backgroundColor: "transparent" },
+  viewerCloseText: { color: colors.white, fontSize: 22, fontWeight: "700" },
+  viewerPrev: { position: "absolute", left: 20, top: "50%", transform: [{ translateY: -24 }] },
+  viewerNext: { position: "absolute", right: 20, top: "50%", transform: [{ translateY: -24 }] },
+  viewerArrowText: { color: colors.white, fontSize: 36, fontWeight: "700" },
+  viewerCounter: { position: "absolute", bottom: 40, color: colors.white, fontSize: 14 },
+  messageImage: { width: 180, height: 110, borderRadius: 10, resizeMode: "cover" },
+  messageImageWrap: { borderRadius: 10, overflow: "hidden" },
+  progressMiniWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
+  progressLike: { marginLeft: 8, padding: 6 },
+  likesCount: { color: colors.muted, marginLeft: 6, fontSize: 12 },
+  recipeDetailImage: { width: "100%", height: 140, borderRadius: 12, resizeMode: "cover" },
+  recipeDetailScroll: { maxHeight: 340, marginTop: 6 },
+  recipeDetailContent: { paddingBottom: 12 },
+  subscriptionGate: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    marginTop: 10,
+    padding: 14,
+    backgroundColor: colors.card,
+  },
+  recipeGateTitle: { color: colors.ink, fontSize: 15, fontWeight: "700", marginBottom: 6 },
+  recipeGateText: { color: colors.ink, fontSize: 13, lineHeight: 19 },
+  subscriptionButton: { minHeight: 42, borderRadius: 999, alignItems: "center", justifyContent: "center", marginTop: 12, backgroundColor: colors.forest },
+  subscriptionButtonText: { color: colors.white, fontSize: 12, fontWeight: "700" },
 });
