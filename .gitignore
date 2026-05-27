@@ -3,3 +3,4 @@ node_modules
 expo-start*.log
 expo-*.log
 .env
+.vscode/
