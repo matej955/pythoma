@@ -77,6 +77,29 @@ function createAuth() {
 export const auth = createAuth();
 export const db = getFirestore(app);
 
+const APP_CONTENT_COLLECTION = "appContent";
+const APP_CONTENT_DOCUMENT = "sanctuary";
+
+function appContentRef() {
+  return doc(db, APP_CONTENT_COLLECTION, APP_CONTENT_DOCUMENT);
+}
+
+function appContentCollectionRef(collectionName) {
+  return collection(db, APP_CONTENT_COLLECTION, APP_CONTENT_DOCUMENT, collectionName);
+}
+
+function appContentDocRef(collectionName, documentId) {
+  return doc(db, APP_CONTENT_COLLECTION, APP_CONTENT_DOCUMENT, collectionName, documentId);
+}
+
+async function getOrderedAppContentDocs(collectionName) {
+  const snapshot = await getDocs(query(appContentCollectionRef(collectionName), orderBy("order", "asc")));
+  return snapshot.docs.map((contentDoc) => ({
+    id: contentDoc.id,
+    ...contentDoc.data(),
+  }));
+}
+
 export async function loginWithEmail(email, password) {
   return signInWithEmailAndPassword(auth, email, password);
 }
@@ -96,6 +119,79 @@ export async function loginWithGoogleIdToken(idToken) {
 
 export function logout() {
   return signOut(auth);
+}
+
+export function subscribeToAppContent(onContent, onError) {
+  return onSnapshot(
+    appContentRef(),
+    (snapshot) => {
+      onContent(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
+    },
+    onError,
+  );
+}
+
+export async function fetchAppContentManifest() {
+  const snapshot = await getDoc(appContentRef());
+  if (!snapshot.exists()) return null;
+
+  const data = snapshot.data();
+  return {
+    schemaVersion: data.schemaVersion,
+    modelVersion: data.modelVersion,
+    contentVersion: data.contentVersion,
+    sectionVersions: data.sectionVersions || {},
+    cache: data.cache,
+    updatedAt: data.updatedAt,
+  };
+}
+
+export async function fetchAppContent() {
+  const [rootSnapshot, settingsSnapshot, imageDocs, programDocs, potionDocs, navDocs, communityPostDocs] = await Promise.all([
+    getDoc(appContentRef()),
+    getDoc(appContentDocRef("settings", "main")),
+    getOrderedAppContentDocs("images"),
+    getOrderedAppContentDocs("programs"),
+    getOrderedAppContentDocs("potions"),
+    getOrderedAppContentDocs("navItems"),
+    getOrderedAppContentDocs("communityPosts"),
+  ]);
+
+  const root = rootSnapshot.exists() ? rootSnapshot.data() : {};
+  const images = imageDocs.reduce((acc, item) => {
+    acc[item.key || item.id] = item.url || item.uri || item.src || "";
+    return acc;
+  }, {});
+
+  return {
+    schemaVersion: root.schemaVersion,
+    modelVersion: root.modelVersion,
+    contentVersion: root.contentVersion,
+    sectionVersions: root.sectionVersions || {},
+    cache: root.cache,
+    images: Object.keys(images).length ? images : root.images,
+    programs: programDocs.length ? programDocs : root.programs || root.allPrograms,
+    communityPosts: communityPostDocs.length ? communityPostDocs : root.communityPosts,
+    potions: potionDocs.length ? potionDocs : root.potions,
+    navItems: navDocs.length ? navDocs : root.navItems,
+    settings: settingsSnapshot.exists() ? settingsSnapshot.data() : root.settings,
+    updatedAt: root.updatedAt,
+  };
+}
+
+export async function uploadAppContent(content) {
+  if (!content || typeof content !== "object") {
+    throw new Error("Missing app content payload.");
+  }
+
+  return setDoc(
+    appContentRef(),
+    {
+      ...content,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
 }
 
 export function subscribeToCommunityMessages(onMessages, onError) {
@@ -213,6 +309,77 @@ export async function getUserSubscription({ uid, email } = {}) {
   ]);
 
   return records;
+}
+
+function requireCurrentUser() {
+  const user = auth.currentUser;
+  if (!user?.uid) throw new Error("Not authenticated");
+  return user;
+}
+
+export async function getUserProfile(uid = auth.currentUser?.uid) {
+  if (!uid) return null;
+  const snapshot = await getDoc(doc(db, "users", uid, "profile", "main"));
+  return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+}
+
+export function subscribeToUserProfile(onProfile, onError, uid = auth.currentUser?.uid) {
+  if (!uid) return () => {};
+  return onSnapshot(
+    doc(db, "users", uid, "profile", "main"),
+    (snapshot) => onProfile(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null),
+    onError,
+  );
+}
+
+export async function saveUserProfile(profile = {}) {
+  const user = requireCurrentUser();
+  const cleanProfile = {
+    name: profile.name || user.displayName || "Ratnica",
+    goal: profile.goal || "",
+    email: user.email || profile.email || "",
+    age: profile.age || "",
+    level: profile.level || "",
+  };
+
+  await setDoc(
+    doc(db, "users", user.uid, "profile", "main"),
+    {
+      ...cleanProfile,
+      uid: user.uid,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await setDoc(
+    doc(db, "users", user.uid),
+    {
+      uid: user.uid,
+      email: user.email || profile.email || "",
+      displayName: cleanProfile.name,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return cleanProfile;
+}
+
+export async function saveUserProgress(programId, progress = {}) {
+  const user = requireCurrentUser();
+  if (!programId) throw new Error("Missing program id");
+
+  return setDoc(
+    doc(db, "users", user.uid, "progress", String(programId)),
+    {
+      ...progress,
+      uid: user.uid,
+      programId: String(programId),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
 }
 
 // Upload a local file URI to Firebase Storage. Accepts an optional progress callback

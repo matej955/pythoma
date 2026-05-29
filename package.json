@@ -7,7 +7,9 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "seed:content": "node scripts/seedAppContent.js",
+    "deploy:rules": "firebase.cmd deploy --project pythoma-d784a --only firestore:rules"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -28,6 +30,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "babel-preset-expo": "~54.0.10"
+    "babel-preset-expo": "~54.0.10",
+    "firebase-admin": "^13.10.0"
   }
 }
