@@ -32,16 +32,20 @@ import {
   logout,
   registerWithEmail,
   sendCommunityMessage,
+  fetchAppContent,
+  fetchAppContentManifest,
   getCommunityMessagesCount,
   fetchLatestCommunityMessages,
   fetchCommunityMessagesBefore,
   subscribeToNewCommunityMessages,
   getUserActivePrograms,
-  getUserSubscription,
+  getUserProfile,
+  saveUserProfile,
   uploadFileAsync,
   toggleMessageLike,
   getLikesCount,
 } from "./firebaseConfig";
+import DEFAULT_APP_CONTENT from "./appContent";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -67,87 +71,14 @@ const colors = {
   danger: "#9c493d",
 };
 
-const image = {
-  jungle: "https://images.pexels.com/photos/4571925/pexels-photo-4571925.jpeg?auto=compress&cs=tinysrgb&w=1000",
-  login: "https://images.pexels.com/photos/4571925/pexels-photo-4571925.jpeg?auto=compress&cs=tinysrgb&w=1000",
-  leaf: "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=900&q=80",
-  woman: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=900&q=80",
-  glutes: "https://images.pexels.com/photos/6455835/pexels-photo-6455835.jpeg?auto=compress&cs=tinysrgb&w=900",
-  strength: "https://images.pexels.com/photos/6456300/pexels-photo-6456300.jpeg?auto=compress&cs=tinysrgb&w=900",
-  boxing: "https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&w=900&q=80",
-  mobility: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=900&q=80",
-  smoothie: "https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=900&q=80",
-  group: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=900&q=80",
-  supplements: "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?auto=format&fit=crop&w=900&q=80",
-};
+const FALLBACK_CONTENT = normalizeAppContent(DEFAULT_APP_CONTENT);
+const image = FALLBACK_CONTENT.images;
+const allPrograms = FALLBACK_CONTENT.programs;
+const communityPosts = FALLBACK_CONTENT.communityPosts;
+const potions = FALLBACK_CONTENT.potions;
+const navItems = FALLBACK_CONTENT.navItems;
 
-const allPrograms = [
-  { title: "GLUTEUS PROGRAM", category: "Teretana", weeks: "12 tjedana", level: "Srednje - Napredno", img: image.glutes },
-  { title: "FAT LOSS PROGRAM", category: "Kod kuce", weeks: "8 tjedana", level: "Pocetni - Srednje", img: image.strength },
-  { title: "FULL BODY STRENGTH", category: "Teretana", weeks: "6 tjedana", level: "Srednje - Napredno", img: image.strength },
-  { title: "BOXER CONDITIONING", category: "Teretana", weeks: "4 tjedna", level: "Srednje - Napredno", img: image.boxing },
-  { title: "MOBILITY & STRETCH", category: "Mobilnost", weeks: "4 tjedna", level: "Pocetni - Srednje", img: image.mobility },
-];
-
-const communityPosts = [
-  { name: "Ana", tab: "Chat", time: "11:23", text: "Danas smashed trening!", likes: 20, comments: 5 },
-  { name: "Mia", tab: "Grupe", time: "11:25", text: "Ponosna na nas! Idemo dalje!", likes: 15, comments: 3 },
-  { name: "Lea", tab: "Aktivnosti", time: "11:30", text: "Hvala vam na podrsci, najbolje ste!", likes: 18, comments: 4 },
-];
-
-const potions = [
-  {
-    title: "Paula's secret potion",
-    tab: "Energija",
-    image: image.smoothie,
-    timing: "Piti ujutro toplo, na prazan zeludac.",
-    ingredients: ["zeleni caj, pravi ne u vrecicama", "dumbir", "kurkuma", "limun", "kajenski papar", "cimet", "med"],
-    preparation:
-      "Za 0,5l napitka prvo prokuhati narezani dumbir. Ostaviti 2-3 minute da se temperatura vode spusti, zatim dodati cajnu zlicicu zelenog caja, 1/3 cajne zlicice kurkume, cimeta i kajenskog papra. Ostaviti 10 minuta i procijediti. Dodati cijeli iscijedeni limun i med.",
-    benefits:
-      "Energija, potice topljenje masti, bolja probava, ciscenje od toksina, kontrola apetita, oporavak i smanjenje upala, cirkulacija.",
-  },
-  {
-    title: "Good morning, electrolytes",
-    tab: "Detox",
-    image: image.leaf,
-    timing: "Piti ujutro odmah nakon budenja na prazan zeludac.",
-    ingredients: ["500ml vode", "prstohvat himalajske soli"],
-    preparation: "U 500ml vode staviti prstohvat himalajske soli i promijesati.",
-    benefits:
-      "Prirodno vracanje izgubljenih elektrolita, bolja hidratacija, manje vrtoglavice i slabosti, tijelo lakse zadrzava vodu, vise energije tijekom treninga, manje grceva u misicima, podrska nadbubreznim zlijezdama, manje glavobolja.",
-  },
-  {
-    title: "Within you",
-    tab: "Hormoni",
-    image: image.smoothie,
-    timing: "Piti navecer za smirenje i craving control.",
-    ingredients: ["maca, ne matcha", "kakao", "cimet", "mlijeko po zelji", "med opcionalno"],
-    preparation:
-      "U salicu toplog mlijeka po zelji dodati 1-2 cajne zlicice sirovog prirodnog kakaa, 1/2-1 cajnu zlicicu mace u prahu i 1/3 cajne zlicice cimeta. Po zelji dodati 1 cajnu zlicicu meda. Promijesati i popiti toplo.",
-    benefits:
-      "Podrska libidu, smanjuje craving za slatkim, podrska hormonima i zivcanom sustavu, vise energije, bolji mood.",
-  },
-  {
-    title: "Golden hour",
-    tab: "San",
-    image: image.smoothie,
-    timing: "Piti navecer.",
-    ingredients: ["mlijeko po zelji", "kurkuma", "cimet", "crni papar", "med opcionalno"],
-    preparation:
-      "U salicu toplog mlijeka staviti 1/2 cajne zlicice kurkume, 1/3 cajne zlicice cimeta, mali prstohvat crnog papra i po zelji 1 zlicicu meda. Promijesati i piti toplo.",
-    benefits:
-      "Podrska zivcanom sustavu i stresu, smanjuje upalne procese, ubrzava regeneraciju, poboljsava kvalitetu sna, podrzava hormonalni balans, pomaze kod PMS simptoma, antioksidansi pomazu kozi i stanicama.",
-  },
-];
-
-const navItems = [
-  { key: "home", label: "Pocetna", icon: "H" },
-  { key: "training", label: "Treninzi", icon: "T" },
-  { key: "community", label: "Community", icon: "C" },
-  { key: "wellness", label: "Wellness", icon: "W" },
-  { key: "profile", label: "Profil", icon: "P" },
-];
+const APP_CONTENT_CACHE_KEY = "pythoma_app_content_cache_v1";
 
 const UPLOAD_QUEUE_KEY = "pythoma_upload_queue_v2";
 const UPLOAD_MODE_KEY = "pythoma_upload_mode_v1";
@@ -163,95 +94,129 @@ const UPLOAD_CONCURRENCY = {
 };
 
 const UPLOAD_PENDING_STATUSES = new Set(["queued", "uploading"]);
-const RECIPE_REQUIRED_SUBSCRIPTION = "Wellness";
-const PROGRAM_REQUIRED_SUBSCRIPTION = "Training";
 
-function normalizeSubscriptionValue(value) {
-  if (!value) return "";
-  if (Array.isArray(value)) return value.map(normalizeSubscriptionValue).join(" ");
-  if (typeof value === "object") {
-    const entitlementKeys = Object.entries(value)
-      .filter(([, entry]) => entry === true)
-      .map(([key]) => key);
-    return normalizeSubscriptionValue([
-      ...entitlementKeys,
-      value.type,
-      value.plan,
-      value.tier,
-      value.name,
-      value.productId,
-      value.subscriptionType,
-      value.status,
-    ]);
+function arrayWithFallback(value, fallback) {
+  return Array.isArray(value) && value.length ? value : fallback;
+}
+
+function resolveImageValue(value, images, fallbackKey) {
+  if (!value) return images[fallbackKey] || "";
+  if (typeof value === "string" && images[value]) return images[value];
+  return value;
+}
+
+function normalizePrograms(programs, images) {
+  return arrayWithFallback(programs, DEFAULT_APP_CONTENT.programs).map((program) => ({
+    ...program,
+    img: resolveImageValue(program.img || program.image || program.imageUrl || program.imgKey, images, "glutes"),
+  }));
+}
+
+function normalizePotions(items, images) {
+  return arrayWithFallback(items, DEFAULT_APP_CONTENT.potions).map((potion) => ({
+    ...potion,
+    image: resolveImageValue(potion.image || potion.img || potion.imageUrl || potion.imageKey, images, "smoothie"),
+    ingredients: arrayWithFallback(potion.ingredients, []),
+  }));
+}
+
+function normalizeAppSettings(settings = {}) {
+  const defaults = DEFAULT_APP_CONTENT.settings;
+  return {
+    ...defaults,
+    ...settings,
+    trainingTabs: arrayWithFallback(settings.trainingTabs, defaults.trainingTabs),
+    communityTabs: arrayWithFallback(settings.communityTabs, defaults.communityTabs),
+    quickActions: arrayWithFallback(settings.quickActions, defaults.quickActions),
+    todayTasks: arrayWithFallback(settings.todayTasks, defaults.todayTasks),
+    uploadModes: arrayWithFallback(settings.uploadModes, defaults.uploadModes),
+    profileStats: arrayWithFallback(settings.profileStats, defaults.profileStats),
+    dailyBoard: {
+      ...defaults.dailyBoard,
+      ...(settings.dailyBoard || {}),
+      tabs: arrayWithFallback(settings.dailyBoard?.tabs, defaults.dailyBoard.tabs),
+      messages: arrayWithFallback(settings.dailyBoard?.messages, defaults.dailyBoard.messages),
+    },
+    brandDiscount: {
+      ...defaults.brandDiscount,
+      ...(settings.brandDiscount || {}),
+    },
+  };
+}
+
+function normalizeAppContent(content = {}) {
+  const images = {
+    ...DEFAULT_APP_CONTENT.images,
+    ...(content.images || content.image || {}),
+  };
+  const cache = {
+    ...DEFAULT_APP_CONTENT.cache,
+    ...(content.cache || {}),
+  };
+  const settings = normalizeAppSettings(content.settings || {});
+
+  return {
+    schemaVersion: content.schemaVersion || DEFAULT_APP_CONTENT.schemaVersion,
+    modelVersion: content.modelVersion || 1,
+    contentVersion: content.contentVersion || "",
+    sectionVersions: content.sectionVersions || {},
+    cache,
+    images,
+    programs: normalizePrograms(content.programs || content.allPrograms, images),
+    communityPosts: arrayWithFallback(content.communityPosts, DEFAULT_APP_CONTENT.communityPosts),
+    potions: normalizePotions(content.potions, images),
+    navItems: arrayWithFallback(content.navItems, DEFAULT_APP_CONTENT.navItems),
+    settings,
+  };
+}
+
+function collectContentImageUris(content) {
+  const images = content?.images || {};
+  const imageValues = Object.values(images);
+  const programImages = (content?.programs || []).map((program) => program.img || program.image || program.imageUrl);
+  const potionImages = (content?.potions || []).map((potion) => potion.image || potion.img || potion.imageUrl);
+  const discountImage = resolveImageValue(content?.settings?.brandDiscount?.image || content?.settings?.brandDiscount?.imageKey, images, "supplements");
+  return [...new Set([...imageValues, ...programImages, ...potionImages, discountImage].filter(Boolean))];
+}
+
+function getContentCacheTtl(content) {
+  const ttl = Number(content?.cache?.ttlMs);
+  return Number.isFinite(ttl) && ttl > 0 ? ttl : DEFAULT_APP_CONTENT.cache.ttlMs;
+}
+
+async function writeContentCache(content) {
+  const cachedAt = Date.now();
+  const expiresAt = cachedAt + getContentCacheTtl(content);
+  await AsyncStorage.setItem(APP_CONTENT_CACHE_KEY, JSON.stringify({ cachedAt, expiresAt, content }));
+}
+
+async function readContentCache() {
+  const cached = await AsyncStorage.getItem(APP_CONTENT_CACHE_KEY);
+  if (!cached) return { content: null, isFresh: false };
+
+  try {
+    const parsed = JSON.parse(cached);
+    if (!parsed?.content || !parsed?.expiresAt) {
+      await AsyncStorage.removeItem(APP_CONTENT_CACHE_KEY);
+      return { content: null, isFresh: false };
+    }
+
+    const isFresh = parsed.expiresAt > Date.now();
+    if (!isFresh) {
+      await AsyncStorage.removeItem(APP_CONTENT_CACHE_KEY);
+      return { content: null, isFresh: false };
+    }
+
+    return { content: normalizeAppContent(parsed.content), isFresh: true };
+  } catch (error) {
+    await AsyncStorage.removeItem(APP_CONTENT_CACHE_KEY).catch(() => {});
+    return { content: null, isFresh: false };
   }
-  return String(value).trim().toLowerCase();
 }
 
-function isSubscriptionRecordActive(record) {
-  if (!record) return false;
-  if (record.subscriptionActive === true || record.hasSubscription === true || record.isSubscribed === true || record.active === true) return true;
-  if (record.purchased === true || normalizeSubscriptionValue(record.purchaseStatus).includes("purchased")) return true;
-
-  const status = normalizeSubscriptionValue(record.subscriptionStatus || record.status || record.state || record.subscription?.status);
-  return ["active", "trialing", "paid", "subscribed", "valid", "purchased"].some((activeStatus) => status.includes(activeStatus));
-}
-
-function getRecipeRequiredSubscription(recipe) {
-  return recipe?.requiredSubscription || recipe?.meta?.requiredSubscription || RECIPE_REQUIRED_SUBSCRIPTION;
-}
-
-function hasRequiredSubscription(record, requiredSubscription) {
-  if (!isSubscriptionRecordActive(record)) return false;
-  const planText = normalizeSubscriptionValue([
-    record.subscriptionType,
-    record.plan,
-    record.tier,
-    record.productId,
-    record.entitlements,
-    record.subscription,
-  ]);
-  const requiredPlan = normalizeSubscriptionValue(requiredSubscription);
-  return !planText || [requiredPlan, "premium", "all", "full"].some((token) => token && planText.includes(token));
-}
-
-function hasRecipeSubscription(record, requiredSubscription = RECIPE_REQUIRED_SUBSCRIPTION) {
-  return hasRequiredSubscription(record, requiredSubscription);
-}
-
-function getProgramRequiredSubscription(program) {
-  return program?.requiredSubscription || program?.meta?.requiredSubscription || PROGRAM_REQUIRED_SUBSCRIPTION;
-}
-
-function hasProgramSubscription(record, requiredSubscription = PROGRAM_REQUIRED_SUBSCRIPTION) {
-  return hasRequiredSubscription(record, requiredSubscription);
-}
-
-function getRecipeText(recipe) {
-  const recipeKey = recipe?.recipeId || recipe?.title || recipe?.meta?.title || "";
-  const catalogRecipe = potions.find((potion) => potion.title === recipeKey);
-  const meta = { ...(catalogRecipe || {}), ...(recipe?.meta || {}), ...(recipe || {}) };
-  return {
-    title: meta.title || recipeKey || "Recipe",
-    image: meta.image || meta.img || image.smoothie,
-    timing: meta.timing || "",
-    ingredients: meta.ingredients || [],
-    preparation: meta.preparation || meta.recipe || meta.text || meta.body || "",
-    benefits: meta.benefits || "",
-  };
-}
-
-function getProgramText(program) {
-  const programKey = program?.programId || program?.title || program?.meta?.title || "";
-  const catalogProgram = allPrograms.find((item) => item.title === programKey);
-  const meta = { ...(catalogProgram || {}), ...(program?.meta || {}), ...(program || {}) };
-  return {
-    title: meta.title || meta.name || programKey || "Program",
-    image: meta.image || meta.img || meta.imageUrl || image.glutes,
-    duration: meta.weeks || meta.duration || meta.length || "",
-    level: meta.level || "",
-    progressPercent: meta.progressPercent ?? meta.progress ?? meta.percent ?? meta.completed ?? "",
-    description: meta.description || meta.text || meta.body || "Detalji programa nisu dostupni.",
-  };
+function hasCurrentContentVersion(cachedContent, manifest) {
+  if (!cachedContent || !manifest?.contentVersion) return false;
+  return cachedContent.contentVersion === manifest.contentVersion;
 }
 
 function backoffDelayForAttempt(attempt) {
@@ -588,6 +553,66 @@ function profileNameFromUser({ displayName, email, fallback }) {
   return fallback?.trim() || profileNameFromEmail(email);
 }
 
+function useSyncedAppContent() {
+  const [content, setContent] = useState(FALLBACK_CONTENT);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      let hasFreshCache = false;
+      let cachedContent = null;
+
+      try {
+        const cached = await readContentCache();
+        hasFreshCache = cached.isFresh;
+        cachedContent = cached.content;
+        if (cancelled) return;
+
+        if (cachedContent) {
+          setContent(cachedContent);
+        }
+      } catch (error) {}
+
+      if (!hasFirebaseConfig) {
+        return;
+      }
+
+      try {
+        const manifest = await fetchAppContentManifest();
+        if (cancelled) return;
+
+        if (hasFreshCache && hasCurrentContentVersion(cachedContent, manifest)) {
+          return;
+        }
+
+        const remoteContent = await fetchAppContent();
+        if (cancelled || !remoteContent) return;
+        const nextContent = normalizeAppContent(remoteContent);
+        setContent(nextContent);
+        writeContentCache(nextContent).catch(() => {});
+      } catch (error) {
+        // Cached/default content keeps the app usable when Firestore is unavailable.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const limit = Math.max(0, Number(content?.cache?.imagePrefetchLimit) || 0);
+    collectContentImageUris(content)
+      .slice(0, limit)
+      .forEach((uri) => {
+        Image.prefetch(uri).catch(() => {});
+      });
+  }, [content]);
+
+  return content;
+}
+
 export default function App() {
   useEffect(() => {
     if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -606,6 +631,7 @@ export default function App() {
   const [communityTab, setCommunityTab] = useState("Chat");
   const [message, setMessage] = useState("");
   const [profile, setProfile] = useState({ name: "Ratnica", goal: "Disciplina. Fokus. Sloboda.", email: "", age: "", level: "Pocetnica" });
+  const content = useSyncedAppContent();
 
   const googleConfigured = Object.values(googleClientIds).some(Boolean);
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest(googleClientIds);
@@ -620,9 +646,9 @@ export default function App() {
         const credential = await loginWithGoogleIdToken(idToken);
         setSession({
           type: "firebase",
+          uid: credential.user.uid,
           name: profileNameFromUser({ displayName: credential.user.displayName, email: credential.user.email }),
           email: credential.user.email,
-          uid: credential.user.uid,
         });
       } catch (error) {
         Alert.alert("Google sign in", error.message);
@@ -655,9 +681,9 @@ export default function App() {
       const credential = await loginWithGoogleIdToken(idToken);
       setSession({
         type: "firebase",
+        uid: credential.user.uid,
         name: profileNameFromUser({ displayName: credential.user.displayName, email: credential.user.email }),
         email: credential.user.email,
-        uid: credential.user.uid,
       });
     } catch (error) {
       if (isErrorWithCode(error)) {
@@ -687,6 +713,41 @@ export default function App() {
       };
     });
   }, [session]);
+
+  useEffect(() => {
+    if (session?.type !== "firebase" || !session.uid) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const remoteProfile = await getUserProfile(session.uid);
+        if (cancelled || !remoteProfile) return;
+        setProfile((current) => ({
+          ...current,
+          ...remoteProfile,
+          email: session.email || remoteProfile.email || current.email,
+        }));
+      } catch (error) {
+        // Local profile remains usable if user sync is unavailable.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.uid, session?.type]);
+
+  async function handleProfileSave(nextProfile) {
+    const profileWithEmail = { ...nextProfile, email: session?.email || nextProfile.email || "" };
+    setProfile(profileWithEmail);
+    if (session?.type !== "firebase") return;
+
+    try {
+      await saveUserProfile(profileWithEmail);
+    } catch (error) {
+      Alert.alert("Profil", "Profil je spremljen lokalno, ali sync trenutno nije dostupan.");
+    }
+  }
 
   function navigate(next) {
     // support optional params: navigate(name, params)
@@ -730,6 +791,7 @@ export default function App() {
         onAuth={setSession}
         onGoogle={handleGoogleLogin}
         request={Platform.OS === "web" ? request : googleConfigured}
+        content={content}
       />
     );
   }
@@ -739,9 +801,9 @@ export default function App() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.paper} />
       <View style={styles.app}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          {screen === "home" && <HomeScreen go={navigate} openMenu={() => setDrawerOpen(true)} profile={profile} />}
+          {screen === "home" && <HomeScreen go={navigate} openMenu={() => setDrawerOpen(true)} profile={profile} content={content} />}
           {screen === "training" && (
-            <TrainingScreen tab={trainingTab} setTab={setTrainingTab} goBack={goBack} openMenu={() => setDrawerOpen(true)} />
+            <TrainingScreen tab={trainingTab} setTab={setTrainingTab} goBack={goBack} openMenu={() => setDrawerOpen(true)} content={content} />
           )}
           {screen === "community" && (
             <CommunityScreen
@@ -754,24 +816,26 @@ export default function App() {
               session={session}
               profile={profile}
               uploadQueue={uploadQueue}
+              content={content}
             />
           )}
-          {screen === "program" && <ProgramDetailScreen program={screenParams} goBack={goBack} />}
-          {screen === "wellness" && <WellnessScreen goBack={goBack} />}
-          {screen === "profile" && <ProfileScreen profile={profile} setProfile={setProfile} goBack={goBack} onLogout={handleLogout} />}
+          {screen === "program" && <ProgramDetailScreen program={screenParams} goBack={goBack} content={content} />}
+          {screen === "wellness" && <WellnessScreen goBack={goBack} content={content} />}
+          {screen === "profile" && <ProfileScreen profile={profile} setProfile={handleProfileSave} goBack={goBack} onLogout={handleLogout} content={content} />}
         </ScrollView>
-        <BottomNav active={screen} setActive={navigate} />
-        <Drawer open={drawerOpen} close={() => setDrawerOpen(false)} go={navigate} onLogout={handleLogout} />
+        <BottomNav active={screen} setActive={navigate} content={content} />
+        <Drawer open={drawerOpen} close={() => setDrawerOpen(false)} go={navigate} onLogout={handleLogout} content={content} />
       </View>
     </SafeAreaView>
   );
 }
 
-function AuthScreen({ mode, setMode, onGuest, onAuth, onGoogle, request }) {
+function AuthScreen({ mode, setMode, onGuest, onAuth, onGoogle, request, content = FALLBACK_CONTENT }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const isForm = mode === "login" || mode === "register";
+  const images = content.images || image;
 
   async function submit() {
     if (!email || !password) {
@@ -787,9 +851,9 @@ function AuthScreen({ mode, setMode, onGuest, onAuth, onGoogle, request }) {
         mode === "register" ? await registerWithEmail({ email, password, name }) : await loginWithEmail(email, password);
       onAuth({
         type: "firebase",
+        uid: credential.user.uid,
         name: profileNameFromUser({ displayName: credential.user.displayName, email: credential.user.email, fallback: name }),
         email: credential.user.email,
-        uid: credential.user.uid,
       });
     } catch (error) {
       Alert.alert(
@@ -802,7 +866,7 @@ function AuthScreen({ mode, setMode, onGuest, onAuth, onGoogle, request }) {
   return (
     <SafeAreaView style={styles.safeDark}>
       <StatusBar barStyle="light-content" backgroundColor={colors.forest} />
-      <ImageBackground source={{ uri: image.login }} style={styles.login} imageStyle={styles.loginImage}>
+      <ImageBackground source={{ uri: images.login }} style={styles.login} imageStyle={styles.loginImage}>
         <View style={styles.loginVeil} />
         <BrandLogo light large />
         {!isForm ? (
@@ -841,30 +905,31 @@ function AuthScreen({ mode, setMode, onGuest, onAuth, onGoogle, request }) {
   );
 }
 
-function HomeScreen({ go, openMenu, profile }) {
+function HomeScreen({ go, openMenu, profile, content = FALLBACK_CONTENT }) {
+  const settings = content.settings || FALLBACK_CONTENT.settings;
+  const quickActions = settings.quickActions || FALLBACK_CONTENT.settings.quickActions;
+  const todayTasks = settings.todayTasks || FALLBACK_CONTENT.settings.todayTasks;
   return (
     <>
       <TopChrome title={`Dobrodosla, ${profile.name || "ratnice"}!`} subtitle="Danas je novi dan za tvoj rast." openMenu={openMenu} />
       <View style={styles.quickGrid}>
-        <Quick icon="T" label="Treninzi" onPress={() => go("training")} />
-        <Quick icon="N" label="Prehrana" onPress={() => go("wellness")} />
-        <Quick icon="C" label="Community" onPress={() => go("community")} />
-        <Quick icon="W" label="Wellness" onPress={() => go("wellness")} />
-        <Quick icon="P" label="Profil" onPress={() => go("profile")} />
+        {quickActions.map((action) => (
+          <Quick key={`${action.screen}-${action.label}`} icon={action.icon} label={action.label} onPress={() => go(action.screen)} />
+        ))}
       </View>
       <View style={styles.focusCard}>
         <View>
           <Text style={styles.tiny}>DNEVNI FOKUS</Text>
-          <Text style={styles.focusText}>Disciplina je most izmedu ciljeva i ostvarenja.</Text>
+          <Text style={styles.focusText}>{settings.dailyFocus}</Text>
         </View>
         <View style={styles.leafMark}>
           <LeafLine />
         </View>
       </View>
       <Text style={styles.sectionLabel}>DANAS TE CEKA</Text>
-      <Task title="Trening - Glute Focus" subtitle="45 min" icon="1" />
-      <Task title="Dnevni zadatak" subtitle="Odradi trening i popij 2L vode." icon="2" />
-      <Task title="Jutarnja poruka" subtitle="Snaga raste iznutra." icon="3" />
+      {todayTasks.map((task) => (
+        <Task key={task.title} title={task.title} subtitle={task.subtitle} icon={task.icon} />
+      ))}
       <View style={styles.progressCard}>
         <View style={styles.rowBetween}>
           <Text style={styles.tiny}>PROGRESS TRACKER</Text>
@@ -882,16 +947,18 @@ function HomeScreen({ go, openMenu, profile }) {
   );
 }
 
-function TrainingScreen({ tab, setTab, goBack, openMenu }) {
+function TrainingScreen({ tab, setTab, goBack, openMenu, content = FALLBACK_CONTENT }) {
+  const programList = content.programs || allPrograms;
+  const tabs = content.settings?.trainingTabs || FALLBACK_CONTENT.settings.trainingTabs;
   const programs = useMemo(() => {
-    if (tab === "Svi programi") return allPrograms;
-    return allPrograms.filter((program) => program.category === tab);
-  }, [tab]);
+    if (tab === "Svi programi") return programList;
+    return programList.filter((program) => program.category === tab);
+  }, [tab, programList]);
 
   return (
     <>
       <ScreenHeader title="TRENINZI" right="Sliders" onBack={goBack} onRight={openMenu} />
-      <Tabs tabs={["Svi programi", "Teretana", "Kod kuce", "Mobilnost"]} active={tab} setActive={setTab} />
+      <Tabs tabs={tabs} active={tab} setActive={setTab} />
       <View style={styles.trainingList}>
         {programs.map((program) => (
           <View key={program.title} style={styles.trainingCard}>
@@ -915,7 +982,7 @@ function formatMessageTime(createdAt) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session, profile, uploadQueue }) {
+function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session, profile, uploadQueue, content = FALLBACK_CONTENT }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(true);
   const [chatError, setChatError] = useState("");
@@ -929,11 +996,13 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
   const [localMessage, setLocalMessage] = useState(message || "");
   const [openProgram, setOpenProgram] = useState(null);
   const [openRecipe, setOpenRecipe] = useState(null);
-  const [programAccess, setProgramAccess] = useState({ loading: false, checked: false, hasAccess: false });
-  const [recipeAccess, setRecipeAccess] = useState({ loading: false, checked: false, hasAccess: false });
   const [likes, setLikes] = useState({});
   const [likesCounts, setLikesCounts] = useState({});
   const [imageViewer, setImageViewer] = useState({ visible: false, images: [], index: 0 });
+  const images = content.images || image;
+  const contentPotions = content.potions || potions;
+  const contentPosts = content.communityPosts || communityPosts;
+  const settings = content.settings || FALLBACK_CONTENT.settings;
 
   function openImageViewer(images, index) {
     setImageViewer({ visible: true, images: images || [], index: index || 0 });
@@ -984,7 +1053,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
     });
   }, [uploadQueue.items]);
 
-  const posts = communityPosts.filter((post) => post.tab === tab);
+  const posts = contentPosts.filter((post) => post.tab === tab);
   const isChat = tab === "Chat";
 
   useEffect(() => {
@@ -1050,96 +1119,6 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
       setHasMore(false);
     };
   }, [isChat]);
-
-  useEffect(() => {
-    if (!openRecipe) {
-      setRecipeAccess({ loading: false, checked: false, hasAccess: false });
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    async function checkRecipeAccess() {
-      const requiredSubscription = getRecipeRequiredSubscription(openRecipe);
-      const localRecords = [profile, session, profile?.subscription, session?.subscription].filter(Boolean);
-      if (localRecords.some((record) => hasRecipeSubscription(record, requiredSubscription))) {
-        setRecipeAccess({ loading: false, checked: true, hasAccess: true });
-        return;
-      }
-
-      if (session?.type !== "firebase") {
-        setRecipeAccess({ loading: false, checked: true, hasAccess: false });
-        return;
-      }
-
-      setRecipeAccess({ loading: true, checked: false, hasAccess: false });
-      try {
-        const subscriptionRecords = await getUserSubscription({ uid: session?.uid, email: session?.email || profile?.email });
-        if (!cancelled) {
-          setRecipeAccess({
-            loading: false,
-            checked: true,
-            hasAccess: subscriptionRecords.some((record) => hasRecipeSubscription(record, requiredSubscription)),
-          });
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setRecipeAccess({ loading: false, checked: true, hasAccess: false });
-        }
-      }
-    }
-
-    checkRecipeAccess();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [openRecipe, profile, session]);
-
-  useEffect(() => {
-    if (!openProgram) {
-      setProgramAccess({ loading: false, checked: false, hasAccess: false });
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    async function checkProgramAccess() {
-      const requiredSubscription = getProgramRequiredSubscription(openProgram);
-      const localRecords = [profile, session, profile?.subscription, session?.subscription].filter(Boolean);
-      if (localRecords.some((record) => hasProgramSubscription(record, requiredSubscription))) {
-        setProgramAccess({ loading: false, checked: true, hasAccess: true });
-        return;
-      }
-
-      if (session?.type !== "firebase") {
-        setProgramAccess({ loading: false, checked: true, hasAccess: false });
-        return;
-      }
-
-      setProgramAccess({ loading: true, checked: false, hasAccess: false });
-      try {
-        const subscriptionRecords = await getUserSubscription({ uid: session?.uid, email: session?.email || profile?.email });
-        if (!cancelled) {
-          setProgramAccess({
-            loading: false,
-            checked: true,
-            hasAccess: subscriptionRecords.some((record) => hasProgramSubscription(record, requiredSubscription)),
-          });
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setProgramAccess({ loading: false, checked: true, hasAccess: false });
-        }
-      }
-    }
-
-    checkProgramAccess();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [openProgram, profile, session]);
 
   async function loadOlderMessages() {
     if (loadingMore || !hasMore) return;
@@ -1243,10 +1222,9 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
         type: "progress",
         programId: prog.id || prog.title,
         title: prog.title || prog.name || "Program",
-        image: prog.img || prog.image || image.glutes,
+        image: prog.img || prog.image || images.glutes,
         userName: profile?.name || session?.name || "",
         progressPercent: percent,
-        requiredSubscription: prog.requiredSubscription || PROGRAM_REQUIRED_SUBSCRIPTION,
         meta: prog,
       };
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -1271,8 +1249,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
       type: "recipe",
       recipeId: recipe.title,
       title: recipe.title,
-      image: recipe.image || recipe.img || image.smoothie,
-      requiredSubscription: recipe.requiredSubscription || RECIPE_REQUIRED_SUBSCRIPTION,
+      image: recipe.image || recipe.img || images.smoothie,
       meta: recipe,
     };
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -1308,28 +1285,10 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
             throw new Error("Pricekaj da upload fotografije zavrsi prije slanja.");
           }
           if (att.type === "recipe") {
-            return {
-              id: att.id,
-              type: "recipe",
-              recipeId: att.recipeId || att.meta?.id || att.title,
-              title: att.title,
-              image: att.image,
-              requiredSubscription: att.requiredSubscription || att.meta?.requiredSubscription || RECIPE_REQUIRED_SUBSCRIPTION,
-              meta: att.meta,
-            };
+            return { id: att.id, type: "recipe", recipeId: att.recipeId || att.meta?.id || att.title, title: att.title, image: att.image, meta: att.meta };
           }
           if (att.type === "progress") {
-            return {
-              id: att.id,
-              type: "progress",
-              programId: att.programId,
-              title: att.title,
-              image: att.image,
-              userName: att.userName,
-              progressPercent: att.progressPercent,
-              requiredSubscription: att.requiredSubscription || att.meta?.requiredSubscription || PROGRAM_REQUIRED_SUBSCRIPTION,
-              meta: att.meta,
-            };
+            return { id: att.id, type: "progress", programId: att.programId, title: att.title, image: att.image, userName: att.userName, progressPercent: att.progressPercent, meta: att.meta };
           }
           return att;
         })
@@ -1374,26 +1333,10 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
     }
   }
 
-  function offerRecipeSubscription() {
-    const requiredSubscription = getRecipeRequiredSubscription(openRecipe);
-    Alert.alert(
-      `${requiredSubscription} subscription`,
-      `This shared recipe is included with the ${requiredSubscription} subscription. Purchase or restore that subscription to unlock the full recipe text.`,
-    );
-  }
-
-  function offerProgramSubscription() {
-    const requiredSubscription = getProgramRequiredSubscription(openProgram);
-    Alert.alert(
-      `${requiredSubscription} subscription`,
-      `This shared program update is included with the ${requiredSubscription} subscription. Purchase or restore that subscription to unlock the full update.`,
-    );
-  }
-
   return (
     <>
       <ScreenHeader title="COMMUNITY" onBack={goBack} />
-      <Tabs tabs={["Chat", "Grupe", "Aktivnosti", "Izazovi"]} active={tab} setActive={setTab} />
+      <Tabs tabs={settings.communityTabs || FALLBACK_CONTENT.settings.communityTabs} active={tab} setActive={setTab} />
       <View style={styles.communityList}>
         {isChat ? (
           <>
@@ -1441,7 +1384,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
                           )}
                           {att.type === "progress" && (
                             <View style={styles.progressMiniWrap}>
-                              <Pressable style={styles.messageImageWrap} onPress={() => setOpenProgram(att)}>
+                              <Pressable style={styles.messageImageWrap} onPress={() => (typeof go === "function" ? go("program", att.meta || att) : setOpenProgram(att))}>
                                 <Image source={{ uri: att.image }} style={styles.messageImage} />
                                 <View style={styles.attachmentBadge}><Text style={styles.attachmentBadgeText}>Progress</Text></View>
                               </Pressable>
@@ -1461,7 +1404,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
           </>
         ) : (
           <>
-            {(posts.length ? posts : communityPosts).map((post) => (
+            {(posts.length ? posts : contentPosts).map((post) => (
               <View key={post.name} style={styles.postCard}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{post.name.slice(0, 1)}</Text>
@@ -1476,7 +1419,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
                 </View>
               </View>
             ))}
-            <ImageBackground source={{ uri: image.group }} style={styles.communityPhoto} imageStyle={styles.communityPhotoImage}>
+            <ImageBackground source={{ uri: images.group }} style={styles.communityPhoto} imageStyle={styles.communityPhotoImage}>
               <View style={styles.photoShade} />
             </ImageBackground>
             <Text style={styles.caption}>Tko ide na vecernji challenge?</Text>
@@ -1550,11 +1493,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
                 <Pressable style={{ paddingVertical: 12 }} onPress={openRecipePicker}><Text>Recipe</Text></Pressable>
                 <Text style={styles.uploadModeLabel}>Upload speed: {uploadQueue.networkType}</Text>
                 <View style={styles.uploadModeRow}>
-                  {[
-                    ["auto", "Auto"],
-                    ["fast", "Fast"],
-                    ["dataSaver", "Saver"],
-                  ].map(([value, label]) => (
+                  {(settings.uploadModes || FALLBACK_CONTENT.settings.uploadModes).map(({ value, label }) => (
                     <Pressable
                       key={value}
                       style={[styles.uploadModePill, uploadQueue.mode === value && styles.uploadModePillActive]}
@@ -1572,7 +1511,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
             <Pressable style={styles.drawerShade} onPress={() => setRecipePickerOpen(false)}>
               <View style={[styles.drawer, { width: 320, margin: 40 }]}>
                 <Text style={styles.potionSectionTitle}>Choose recipe</Text>
-                {potions.map((p) => (
+                {contentPotions.map((p) => (
                   <Pressable key={p.title} style={{ paddingVertical: 12 }} onPress={() => chooseRecipe(p)}>
                     <Text>{p.title}</Text>
                   </Pressable>
@@ -1583,22 +1522,30 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
           {/* program detail modal */}
           <Modal visible={!!openProgram} transparent animationType="slide" onRequestClose={() => setOpenProgram(null)}>
             <Pressable style={styles.drawerShade} onPress={() => setOpenProgram(null)}>
-              <Pressable style={[styles.drawer, styles.recipeDrawer]}>
+              <View style={[styles.drawer, { width: 320, margin: 40 }]}>
                 {openProgram && (
-                  <ProgramUpdateContent program={openProgram} access={programAccess} onSubscribe={offerProgramSubscription} />
+                  <>
+                    <Image source={{ uri: openProgram.image }} style={{ width: "100%", height: 140, borderRadius: 12 }} />
+                    <Text style={styles.potionSectionTitle}>{openProgram.title}</Text>
+                    <Text style={styles.body}>{openProgram.meta?.weeks || openProgram.meta?.duration || "-"}</Text>
+                    <Text style={styles.potionBody}>{openProgram.meta?.level || ""}</Text>
+                  </>
                 )}
-              </Pressable>
+              </View>
             </Pressable>
           </Modal>
 
           {/* recipe detail modal */}
           <Modal visible={!!openRecipe} transparent animationType="slide" onRequestClose={() => setOpenRecipe(null)}>
             <Pressable style={styles.drawerShade} onPress={() => setOpenRecipe(null)}>
-              <Pressable style={[styles.drawer, styles.recipeDrawer]}>
+              <View style={[styles.drawer, { width: 320, margin: 40 }]}>
                 {openRecipe && (
-                  <RecipeDetailContent recipe={openRecipe} access={recipeAccess} onSubscribe={offerRecipeSubscription} />
+                  <>
+                    <Image source={{ uri: openRecipe.image }} style={{ width: "100%", height: 140, borderRadius: 12 }} />
+                    <Text style={styles.potionSectionTitle}>{openRecipe.title}</Text>
+                  </>
                 )}
-              </Pressable>
+              </View>
             </Pressable>
           </Modal>
           {/* full screen image viewer */}
@@ -1762,23 +1709,31 @@ function FullScreenImageViewer({ images = [], index = 0, onClose, onIndexChange 
   );
 }
 
-function WellnessScreen({ goBack }) {
-  const [dailyTab, setDailyTab] = useState("Jutro");
-  const [drinkTab, setDrinkTab] = useState(potions[0].title);
-  const selectedPotion = potions.find((potion) => potion.title === drinkTab) || potions[0];
+function WellnessScreen({ goBack, content = FALLBACK_CONTENT }) {
+  const contentPotions = content.potions || potions;
+  const dailyBoard = content.settings?.dailyBoard || FALLBACK_CONTENT.settings.dailyBoard;
+  const [dailyTab, setDailyTab] = useState(dailyBoard.tabs[0]);
+  const [drinkTab, setDrinkTab] = useState(contentPotions[0]?.title);
+  const selectedPotion = contentPotions.find((potion) => potion.title === drinkTab) || contentPotions[0] || {};
+
+  useEffect(() => {
+    if (!dailyBoard.tabs.includes(dailyTab)) setDailyTab(dailyBoard.tabs[0]);
+    if (!contentPotions.some((potion) => potion.title === drinkTab)) setDrinkTab(contentPotions[0]?.title);
+  }, [dailyBoard.tabs, contentPotions, dailyTab, drinkTab]);
+
   return (
     <>
       <ScreenHeader title="DAILY BOARD" right="Leaf" onBack={goBack} />
-      <Tabs tabs={["Jutro", "Vecer"]} active={dailyTab} setActive={setDailyTab} />
+      <Tabs tabs={dailyBoard.tabs} active={dailyTab} setActive={setDailyTab} />
       <View style={styles.dailyCard}>
         <Text style={styles.sun}>{dailyTab === "Jutro" ? "SUN" : "MOON"}</Text>
         <Text style={styles.dailyTitle}>{dailyTab.toUpperCase()}</Text>
-        <Text style={styles.dailyText}>Danas biram sebe.</Text>
-        <Text style={styles.dailyText}>Danas biram svoj mir.</Text>
-        <Text style={styles.dailyText}>Danas biram rast.</Text>
+        {dailyBoard.messages.map((line) => (
+          <Text key={line} style={styles.dailyText}>{line}</Text>
+        ))}
       </View>
       <ScreenHeader title="CAROBNI NAPITCI" right="Leaf" compact onBack={goBack} />
-      <Tabs tabs={potions.map((potion) => potion.title)} active={drinkTab} setActive={setDrinkTab} />
+      <Tabs tabs={contentPotions.map((potion) => potion.title)} active={drinkTab} setActive={setDrinkTab} />
       <View style={styles.potionCard}>
         <ImageBackground source={{ uri: selectedPotion.image }} style={styles.potionHero} imageStyle={styles.potionHeroImage}>
           <View style={styles.potionHeroShade} />
@@ -1809,93 +1764,13 @@ function PotionSection({ title, items }) {
   );
 }
 
-function RecipeDetailContent({ recipe, access, onSubscribe }) {
-  const details = getRecipeText(recipe);
-  const requiredSubscription = getRecipeRequiredSubscription(recipe);
-  const ingredients = Array.isArray(details.ingredients)
-    ? details.ingredients
-    : String(details.ingredients || "")
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-
-  return (
-    <>
-      <Image source={{ uri: recipe.image || details.image }} style={styles.recipeDetailImage} />
-      <Text style={styles.potionSectionTitle}>{recipe.title || details.title}</Text>
-      {access.loading && <Text style={styles.recipeGateText}>Provjeravam pretplatu...</Text>}
-      {!access.loading && access.hasAccess && (
-        <ScrollView style={styles.recipeDetailScroll} contentContainerStyle={styles.recipeDetailContent} nestedScrollEnabled showsVerticalScrollIndicator>
-          {!!details.timing && <Text style={styles.potionTiming}>{details.timing}</Text>}
-          {ingredients.length > 0 && <PotionSection title="Sastojci" items={ingredients} />}
-          {!!details.preparation && (
-            <>
-              <Text style={styles.potionSectionTitle}>Priprema</Text>
-              <Text style={styles.potionBody}>{details.preparation}</Text>
-            </>
-          )}
-          {!!details.benefits && (
-            <>
-              <Text style={styles.potionSectionTitle}>Benefiti</Text>
-              <Text style={styles.potionBody}>{details.benefits}</Text>
-            </>
-          )}
-        </ScrollView>
-      )}
-      {!access.loading && access.checked && !access.hasAccess && (
-        <View style={styles.subscriptionGate}>
-          <Text style={styles.recipeGateTitle}>{requiredSubscription} pretplata</Text>
-          <Text style={styles.recipeGateText}>Za otvaranje cijelog recepta potrebna je {requiredSubscription} pretplata.</Text>
-          <Pressable style={styles.subscriptionButton} onPress={onSubscribe}>
-            <Text style={styles.subscriptionButtonText}>Pogledaj pretplatu</Text>
-          </Pressable>
-        </View>
-      )}
-    </>
-  );
-}
-
-function ProgramUpdateContent({ program, access, onSubscribe }) {
-  const details = getProgramText(program);
-  const requiredSubscription = getProgramRequiredSubscription(program);
-  const hasProgress = details.progressPercent !== "" && details.progressPercent !== null && details.progressPercent !== undefined;
-  const progressLabel = `${details.progressPercent}${String(details.progressPercent).includes("%") ? "" : "%"}`;
-
-  return (
-    <>
-      <Image source={{ uri: program.image || details.image }} style={styles.recipeDetailImage} />
-      <Text style={styles.potionSectionTitle}>{program.title || details.title}</Text>
-      {access.loading && <Text style={styles.recipeGateText}>Provjeravam pretplatu...</Text>}
-      {!access.loading && access.hasAccess && (
-        <ScrollView style={styles.recipeDetailScroll} contentContainerStyle={styles.recipeDetailContent} nestedScrollEnabled showsVerticalScrollIndicator>
-          {!!details.duration && <Text style={styles.body}>{details.duration}</Text>}
-          {!!details.level && <Text style={styles.potionBody}>{details.level}</Text>}
-          {hasProgress && (
-            <>
-              <Text style={styles.potionSectionTitle}>Napredak</Text>
-              <Text style={styles.potionBody}>{progressLabel} dovrseno</Text>
-            </>
-          )}
-          <Text style={styles.potionSectionTitle}>Opis</Text>
-          <Text style={styles.potionBody}>{details.description}</Text>
-        </ScrollView>
-      )}
-      {!access.loading && access.checked && !access.hasAccess && (
-        <View style={styles.subscriptionGate}>
-          <Text style={styles.recipeGateTitle}>{requiredSubscription} pretplata</Text>
-          <Text style={styles.recipeGateText}>Za otvaranje cijelog programskog updatea potrebna je {requiredSubscription} pretplata.</Text>
-          <Pressable style={styles.subscriptionButton} onPress={onSubscribe}>
-            <Text style={styles.subscriptionButtonText}>Pogledaj pretplatu</Text>
-          </Pressable>
-        </View>
-      )}
-    </>
-  );
-}
-
-function ProfileScreen({ profile, setProfile, goBack, onLogout }) {
+function ProfileScreen({ profile, setProfile, goBack, onLogout, content = FALLBACK_CONTENT }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile);
+  const images = content.images || image;
+  const stats = content.settings?.profileStats || FALLBACK_CONTENT.settings.profileStats;
+  const discount = content.settings?.brandDiscount || FALLBACK_CONTENT.settings.brandDiscount;
+  const discountImage = resolveImageValue(discount.image || discount.imageKey, images, "supplements");
 
   useEffect(() => {
     setDraft(profile);
@@ -1908,7 +1783,7 @@ function ProfileScreen({ profile, setProfile, goBack, onLogout }) {
         setEditing((current) => !current);
       }} />
       <View style={styles.profileCard}>
-        <Image source={{ uri: image.woman }} style={styles.profileImage} />
+        <Image source={{ uri: images.woman }} style={styles.profileImage} />
         <View style={styles.profileText}>
           {editing ? (
             <>
@@ -1931,22 +1806,22 @@ function ProfileScreen({ profile, setProfile, goBack, onLogout }) {
         </View>
       )}
       <View style={styles.profileStats}>
-        <ProfileStat label="Treninzi" value="32" />
-        <ProfileStat label="Aktivni dani" value="18" />
-        <ProfileStat label="Napredak" value="72%" />
+        {stats.map((stat) => (
+          <ProfileStat key={stat.label} label={stat.label} value={stat.value} />
+        ))}
       </View>
       <View style={styles.gazzCard}>
         <View style={styles.rowBetween}>
-          <Text style={styles.gazzTitle}>GAZZ NUTRITION</Text>
+          <Text style={styles.gazzTitle}>{discount.title}</Text>
           <Text style={styles.bottle}>G</Text>
         </View>
-        <Text style={styles.gazzText}>Ekskluzivni popusti za Pythoma ratnice. Koristi svoj kod i ustedi!</Text>
+        <Text style={styles.gazzText}>{discount.text}</Text>
         <View style={styles.gazzBody}>
           <View style={styles.discountBadge}>
-            <Text style={styles.discountMain}>PYTHOMA20</Text>
-            <Text style={styles.discountSub}>-20% POPUSTA</Text>
+            <Text style={styles.discountMain}>{discount.code}</Text>
+            <Text style={styles.discountSub}>{discount.subtext}</Text>
           </View>
-          <Image source={{ uri: image.supplements }} style={styles.supplements} />
+          <Image source={{ uri: discountImage }} style={styles.supplements} />
         </View>
       </View>
       <Pressable style={styles.logoutButton} onPress={onLogout}>
@@ -1956,13 +1831,14 @@ function ProfileScreen({ profile, setProfile, goBack, onLogout }) {
   );
 }
 
-function Drawer({ open, close, go, onLogout }) {
+function Drawer({ open, close, go, onLogout, content = FALLBACK_CONTENT }) {
+  const items = content.navItems || navItems;
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
       <Pressable style={styles.drawerShade} onPress={close}>
         <Pressable style={styles.drawer}>
           <BrandLogo />
-          {navItems.map((item) => (
+          {items.map((item) => (
             <Pressable key={item.key} style={styles.drawerItem} onPress={() => go(item.key)}>
               <Text style={styles.drawerIcon}>{item.icon}</Text>
               <Text style={styles.drawerText}>{item.label}</Text>
@@ -2007,13 +1883,14 @@ function ScreenHeader({ title, right, compact, onBack, onRight }) {
   );
 }
 
-function ProgramDetailScreen({ program, goBack }) {
+function ProgramDetailScreen({ program, goBack, content = FALLBACK_CONTENT }) {
   const prog = program || {};
+  const images = content.images || image;
   return (
     <>
       <ScreenHeader title={prog.title || "Program"} onBack={goBack} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
-        <Image source={{ uri: prog.img || prog.image || prog.imageUrl || image.glutes }} style={{ width: "100%", height: 220, borderRadius: 12, marginBottom: 12 }} />
+        <Image source={{ uri: prog.img || prog.image || prog.imageUrl || images.glutes }} style={{ width: "100%", height: 220, borderRadius: 12, marginBottom: 12 }} />
         <Text style={styles.potionSectionTitle}>{prog.title}</Text>
         <Text style={styles.body}>{prog.weeks || prog.meta?.weeks || prog.meta?.duration || ""}</Text>
         <Text style={styles.potionBody}>{prog.meta?.level || prog.level || ""}</Text>
@@ -2159,10 +2036,11 @@ function LeafLine({ small }) {
   );
 }
 
-function BottomNav({ active, setActive }) {
+function BottomNav({ active, setActive, content = FALLBACK_CONTENT }) {
+  const items = content.navItems || navItems;
   return (
     <View style={styles.bottomNav}>
-      {navItems.map((item) => (
+      {items.map((item) => (
         <Pressable key={item.key} style={styles.navItem} onPress={() => setActive(item.key)}>
           <Text style={[styles.navIcon, active === item.key && styles.navActive]}>{item.icon}</Text>
           <Text style={[styles.navLabel, active === item.key && styles.navActive]}>{item.label}</Text>
@@ -2488,15 +2366,6 @@ const styles = StyleSheet.create({
   logoutText: { color: colors.white, fontWeight: "700" },
   drawerShade: { flex: 1, backgroundColor: "rgba(0,0,0,0.25)" },
   drawer: { width: 278, flex: 1, paddingTop: 58, paddingHorizontal: 18, backgroundColor: colors.paper },
-  recipeDrawer: {
-    flex: 0,
-    width: 320,
-    maxHeight: "82%",
-    margin: 40,
-    borderRadius: 18,
-    paddingTop: 18,
-    paddingBottom: 18,
-  },
   drawerItem: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, borderBottomWidth: 1, borderBottomColor: colors.line },
   drawerIcon: { color: colors.forest, width: 24, fontWeight: "700" },
   drawerText: { color: colors.ink, fontSize: 16 },
@@ -2553,19 +2422,4 @@ const styles = StyleSheet.create({
   progressMiniWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
   progressLike: { marginLeft: 8, padding: 6 },
   likesCount: { color: colors.muted, marginLeft: 6, fontSize: 12 },
-  recipeDetailImage: { width: "100%", height: 140, borderRadius: 12, resizeMode: "cover" },
-  recipeDetailScroll: { maxHeight: 340, marginTop: 6 },
-  recipeDetailContent: { paddingBottom: 12 },
-  subscriptionGate: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 14,
-    marginTop: 10,
-    padding: 14,
-    backgroundColor: colors.card,
-  },
-  recipeGateTitle: { color: colors.ink, fontSize: 15, fontWeight: "700", marginBottom: 6 },
-  recipeGateText: { color: colors.ink, fontSize: 13, lineHeight: 19 },
-  subscriptionButton: { minHeight: 42, borderRadius: 999, alignItems: "center", justifyContent: "center", marginTop: 12, backgroundColor: colors.forest },
-  subscriptionButtonText: { color: colors.white, fontSize: 12, fontWeight: "700" },
 });
