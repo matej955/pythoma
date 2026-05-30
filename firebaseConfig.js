@@ -29,9 +29,11 @@ import {
   runTransaction,
   increment,
   serverTimestamp,
+  writeBatch,
 } from "firebase/firestore";
 import { getFirestore } from "firebase/firestore";
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { FIREBASE_ANALYTICS_EVENTS, FIREBASE_COLLECTIONS, FIREBASE_DOCUMENTS, FIREBASE_SUBCOLLECTIONS } from "./firebaseModels";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyD48TI_Ugg1JxAS8gpZHBrw83deMZcS9WQ",
@@ -79,8 +81,9 @@ function createAuth() {
 export const auth = createAuth();
 export const db = getFirestore(app);
 
-const APP_CONTENT_COLLECTION = "appContent";
-const APP_CONTENT_DOCUMENT = "sanctuary";
+const APP_CONTENT_COLLECTION = FIREBASE_COLLECTIONS.appContent;
+const APP_CONTENT_DOCUMENT = FIREBASE_DOCUMENTS.appContentRoot;
+const COMMUNITY_MESSAGES_COLLECTION = FIREBASE_COLLECTIONS.communityMessages;
 const HIDDEN_MESSAGE_STATES = new Set(["hidden", "removed", "blocked"]);
 
 function appContentRef() {
@@ -197,8 +200,63 @@ export async function uploadAppContent(content) {
   );
 }
 
+function compactAnalyticsPayload(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  return Object.entries(value).reduce((payload, [key, item]) => {
+    if (item === undefined) return payload;
+    payload[key] = compactAnalyticsPayload(item);
+    return payload;
+  }, {});
+}
+
+function resolveAnalyticsEventDefinition(eventNameOrKey) {
+  return (
+    FIREBASE_ANALYTICS_EVENTS[eventNameOrKey] ||
+    Object.values(FIREBASE_ANALYTICS_EVENTS).find((definition) => definition.eventName === eventNameOrKey)
+  );
+}
+
+export async function trackAnalyticsEvent(eventNameOrKey, data = {}, options = {}) {
+  const definition = resolveAnalyticsEventDefinition(eventNameOrKey);
+  if (!definition) throw new Error(`Unknown analytics event: ${eventNameOrKey}`);
+
+  const user = auth.currentUser;
+  const uid = options.uid || user?.uid || "";
+  const eventPayload = {
+    eventName: definition.eventName,
+    uid,
+    email: options.email || user?.email || "",
+    role: options.role || "",
+    sessionId: options.sessionId || "",
+    anonymousId: options.anonymousId || "",
+    source: options.source || "mobile",
+    platform: options.platform || "",
+    appVersion: options.appVersion || "",
+    occurredAt: options.occurredAt || serverTimestamp(),
+    createdAt: serverTimestamp(),
+    context: compactAnalyticsPayload(options.context || {}),
+    data: compactAnalyticsPayload(data || {}),
+  };
+
+  const analyticsRef = doc(collection(db, FIREBASE_COLLECTIONS.analyticsEvents));
+  const eventRef = doc(collection(db, definition.collection));
+  const batch = writeBatch(db);
+
+  batch.set(analyticsRef, eventPayload);
+  batch.set(eventRef, {
+    ...eventPayload,
+    analyticsEventId: analyticsRef.id,
+  });
+  await batch.commit();
+
+  return { id: analyticsRef.id, eventName: definition.eventName, collection: definition.collection };
+}
+
 export function subscribeToCommunityMessages(onMessages, onError) {
-  const messagesQuery = query(collection(db, "communityMessages"), orderBy("createdAt", "desc"), limit(50));
+  const messagesQuery = query(collection(db, COMMUNITY_MESSAGES_COLLECTION), orderBy("createdAt", "desc"), limit(50));
   return onSnapshot(
     messagesQuery,
     (snapshot) => {
@@ -218,7 +276,7 @@ export function subscribeToCommunityMessages(onMessages, onError) {
 // Get total count of community messages (uses Firestore count aggregation)
 export async function getCommunityMessagesCount() {
   try {
-    const snapshot = await getCountFromServer(query(collection(db, "communityMessages")));
+    const snapshot = await getCountFromServer(query(collection(db, COMMUNITY_MESSAGES_COLLECTION)));
     return snapshot.data().count || 0;
   } catch (error) {
     // fallback: return 0 on error
@@ -228,7 +286,7 @@ export async function getCommunityMessagesCount() {
 
 // Fetch the latest page of messages (most recent `pageSize`), returns messages (asc order) and the last visible doc for pagination
 export async function fetchLatestCommunityMessages(pageSize = 20) {
-  const q = query(collection(db, "communityMessages"), orderBy("createdAt", "desc"), limit(pageSize));
+  const q = query(collection(db, COMMUNITY_MESSAGES_COLLECTION), orderBy("createdAt", "desc"), limit(pageSize));
   const snapshot = await getDocs(q);
   const messages = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter(isCommunityMessageVisible).reverse();
   const lastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
@@ -238,7 +296,7 @@ export async function fetchLatestCommunityMessages(pageSize = 20) {
 // Fetch older messages after the provided `lastVisible` (DocumentSnapshot) in pages of `pageSize`
 export async function fetchCommunityMessagesBefore(lastVisible, pageSize = 20) {
   if (!lastVisible) return { messages: [], lastVisible: null, hasMore: false };
-  const q = query(collection(db, "communityMessages"), orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
+  const q = query(collection(db, COMMUNITY_MESSAGES_COLLECTION), orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
   const snapshot = await getDocs(q);
   const messages = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter(isCommunityMessageVisible).reverse();
   const newLastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
@@ -247,7 +305,7 @@ export async function fetchCommunityMessagesBefore(lastVisible, pageSize = 20) {
 
 // Subscribe to only the newest message in real-time (useful to append incoming messages)
 export function subscribeToNewCommunityMessages(onNewMessage, onError) {
-  const q = query(collection(db, "communityMessages"), orderBy("createdAt", "desc"), limit(1));
+  const q = query(collection(db, COMMUNITY_MESSAGES_COLLECTION), orderBy("createdAt", "desc"), limit(1));
   return onSnapshot(
     q,
     (snapshot) => {
@@ -264,7 +322,7 @@ export async function getUserActivePrograms(identifier) {
   if (!identifier) return [];
   try {
     const field = identifier.includes("@") ? "email" : "uid";
-    const q = query(collection(db, "userPrograms"), where(field, "==", identifier));
+    const q = query(collection(db, FIREBASE_COLLECTIONS.userPrograms), where(field, "==", identifier));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
@@ -302,14 +360,14 @@ export async function getUserSubscription({ uid, email } = {}) {
   }
 
   await Promise.all([
-    readDoc("users", currentUid),
-    readDoc("profiles", currentUid),
-    readDoc("subscriptions", currentUid),
-    readDoc("users", currentEmail),
-    readQuery("userSubscriptions", "uid", currentUid),
-    readQuery("userSubscriptions", "email", currentEmail),
-    readQuery("subscriptions", "uid", currentUid),
-    readQuery("subscriptions", "email", currentEmail),
+    readDoc(FIREBASE_COLLECTIONS.users, currentUid),
+    readDoc(FIREBASE_COLLECTIONS.profiles, currentUid),
+    readDoc(FIREBASE_COLLECTIONS.subscriptions, currentUid),
+    readDoc(FIREBASE_COLLECTIONS.users, currentEmail),
+    readQuery(FIREBASE_COLLECTIONS.userSubscriptions, "uid", currentUid),
+    readQuery(FIREBASE_COLLECTIONS.userSubscriptions, "email", currentEmail),
+    readQuery(FIREBASE_COLLECTIONS.subscriptions, "uid", currentUid),
+    readQuery(FIREBASE_COLLECTIONS.subscriptions, "email", currentEmail),
   ]);
 
   return records;
@@ -323,14 +381,14 @@ function requireCurrentUser() {
 
 export async function getUserProfile(uid = auth.currentUser?.uid) {
   if (!uid) return null;
-  const snapshot = await getDoc(doc(db, "users", uid, "profile", "main"));
+  const snapshot = await getDoc(doc(db, FIREBASE_COLLECTIONS.users, uid, FIREBASE_SUBCOLLECTIONS.userProfile, FIREBASE_DOCUMENTS.mainSettings));
   return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
 }
 
 export function subscribeToUserProfile(onProfile, onError, uid = auth.currentUser?.uid) {
   if (!uid) return () => {};
   return onSnapshot(
-    doc(db, "users", uid, "profile", "main"),
+    doc(db, FIREBASE_COLLECTIONS.users, uid, FIREBASE_SUBCOLLECTIONS.userProfile, FIREBASE_DOCUMENTS.mainSettings),
     (snapshot) => onProfile(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null),
     onError,
   );
@@ -347,7 +405,7 @@ export async function saveUserProfile(profile = {}) {
   };
 
   await setDoc(
-    doc(db, "users", user.uid, "profile", "main"),
+    doc(db, FIREBASE_COLLECTIONS.users, user.uid, FIREBASE_SUBCOLLECTIONS.userProfile, FIREBASE_DOCUMENTS.mainSettings),
     {
       ...cleanProfile,
       uid: user.uid,
@@ -357,7 +415,7 @@ export async function saveUserProfile(profile = {}) {
   );
 
   await setDoc(
-    doc(db, "users", user.uid),
+    doc(db, FIREBASE_COLLECTIONS.users, user.uid),
     {
       uid: user.uid,
       email: user.email || profile.email || "",
@@ -375,7 +433,7 @@ export async function saveUserProgress(programId, progress = {}) {
   if (!programId) throw new Error("Missing program id");
 
   return setDoc(
-    doc(db, "users", user.uid, "progress", String(programId)),
+    doc(db, FIREBASE_COLLECTIONS.users, user.uid, FIREBASE_SUBCOLLECTIONS.userProgress, String(programId)),
     {
       ...progress,
       uid: user.uid,
@@ -430,7 +488,7 @@ export async function uploadFileAsync(uri, onProgress) {
 // Likes helpers: using a subcollection `communityMessages/{messageId}/likes/{uid}`
 export async function getLikesCount(messageId) {
   try {
-    const q = query(collection(db, "communityMessages", messageId, "likes"));
+    const q = query(collection(db, COMMUNITY_MESSAGES_COLLECTION, messageId, FIREBASE_SUBCOLLECTIONS.messageLikes));
     const snap = await getCountFromServer(q);
     return snap.data().count || 0;
   } catch (err) {
@@ -441,7 +499,7 @@ export async function getLikesCount(messageId) {
 export async function toggleMessageLike(messageId) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Not authenticated");
-  const likeRef = doc(db, "communityMessages", messageId, "likes", uid);
+  const likeRef = doc(db, COMMUNITY_MESSAGES_COLLECTION, messageId, FIREBASE_SUBCOLLECTIONS.messageLikes, uid);
   const likeSnap = await getDoc(likeRef);
   if (likeSnap.exists()) {
     await deleteDoc(likeRef);
@@ -453,7 +511,7 @@ export async function toggleMessageLike(messageId) {
 }
 
 export function subscribeToMessageLikes(messageId, onChange, onError) {
-  const q = query(collection(db, "communityMessages", messageId, "likes"));
+  const q = query(collection(db, COMMUNITY_MESSAGES_COLLECTION, messageId, FIREBASE_SUBCOLLECTIONS.messageLikes));
   return onSnapshot(
     q,
     (snapshot) => onChange(snapshot.size),
@@ -473,8 +531,8 @@ export async function toggleMessageReaction(messageId, emoji) {
   if (!uid) throw new Error("Not authenticated");
   if (!messageId || !emoji) throw new Error("Missing reaction");
 
-  const messageRef = doc(db, "communityMessages", messageId);
-  const reactionRef = doc(db, "communityMessages", messageId, "reactions", uid);
+  const messageRef = doc(db, COMMUNITY_MESSAGES_COLLECTION, messageId);
+  const reactionRef = doc(db, COMMUNITY_MESSAGES_COLLECTION, messageId, FIREBASE_SUBCOLLECTIONS.messageReactions, uid);
 
   return runTransaction(db, async (transaction) => {
     const reactionSnap = await transaction.get(reactionRef);
@@ -512,7 +570,7 @@ export async function toggleMessageReaction(messageId, emoji) {
 
 export function subscribeToMessageReactions(messageId, onChange, onError) {
   const uid = auth.currentUser?.uid || "";
-  const reactionsQuery = query(collection(db, "communityMessages", messageId, "reactions"));
+  const reactionsQuery = query(collection(db, COMMUNITY_MESSAGES_COLLECTION, messageId, FIREBASE_SUBCOLLECTIONS.messageReactions));
   return onSnapshot(
     reactionsQuery,
     (snapshot) => {
@@ -537,7 +595,7 @@ export function sendCommunityMessage({ text, user, attachments = [] }) {
   const cleanText = (text || "").trim();
   if (!cleanText && (!attachments || attachments.length === 0)) return Promise.resolve();
 
-  return addDoc(collection(db, "communityMessages"), {
+  return addDoc(collection(db, COMMUNITY_MESSAGES_COLLECTION), {
     schemaVersion: 2,
     contentType: "globalChatMessage",
     text: cleanText,
