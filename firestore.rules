@@ -11,6 +11,10 @@ service cloud.firestore {
         && (request.auth.token.owner == true || request.auth.token.admin == true);
     }
 
+    function isCoach() {
+      return signedIn() && request.auth.token.coach == true;
+    }
+
     function isSelf(userId) {
       return signedIn() && request.auth.uid == userId;
     }
@@ -31,7 +35,77 @@ service cloud.firestore {
         && request.resource.data.emoji.size() <= 16;
     }
 
+    function isKnownAnalyticsEvent(eventName) {
+      return eventName in [
+        "user_registered",
+        "subscription_started",
+        "workout_started",
+        "workout_completed",
+        "program_opened",
+        "community_post_created"
+      ];
+    }
+
+    function isValidAnalyticsEventCreate(eventName) {
+      return signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.eventName == eventName
+        && request.resource.data.data is map
+        && request.resource.data.context is map;
+    }
+
+    function ownsResourceUid() {
+      return signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    function ownsResourceAndRequestedUid() {
+      return ownsResourceUid() && ownsRequestedUid();
+    }
+
+    function ownsRequestedReporterUid() {
+      return signedIn() && request.resource.data.reporterUid == request.auth.uid;
+    }
+
+    function isValidReportTarget(targetType) {
+      return targetType in ["communityPost", "comment", "mediaAsset", "user"];
+    }
+
     match /appContent/{document=**} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /appSettings/{settingsId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /appNavigation/{navigationId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /homeContent/{homeContentId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /programs/{programId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /workouts/{workoutId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /exercises/{exerciseId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /recipes/{recipeId} {
       allow read: if true;
       allow write: if isOwner();
     }
@@ -71,6 +145,82 @@ service cloud.firestore {
       }
     }
 
+    match /progress/{progressId} {
+      allow read: if isOwner() || ownsResourceUid();
+      allow create: if isOwner() || ownsRequestedUid();
+      allow update: if isOwner() || ownsResourceAndRequestedUid();
+      allow delete: if isOwner();
+    }
+
+    match /workoutSessions/{sessionId} {
+      allow read: if isOwner() || ownsResourceUid();
+      allow create: if isOwner() || ownsRequestedUid();
+      allow update: if isOwner() || ownsResourceAndRequestedUid();
+      allow delete: if isOwner();
+    }
+
+    match /communityPosts/{postId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 4000;
+      allow update: if isOwner() || ownsResourceAndRequestedUid();
+      allow delete: if isOwner() || ownsResourceUid();
+    }
+
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 2000;
+      allow update: if isOwner() || ownsResourceAndRequestedUid();
+      allow delete: if isOwner() || ownsResourceUid();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner() || ownsResourceUid();
+      allow create, update, delete: if isOwner();
+    }
+
+    match /mediaAssets/{mediaAssetId} {
+      allow read: if true;
+      allow create: if isOwner()
+        || (signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.url is string
+          && request.resource.data.storagePath is string);
+      allow update: if isOwner() || ownsResourceAndRequestedUid();
+      allow delete: if isOwner() || ownsResourceUid();
+    }
+
+    match /reports/{reportId} {
+      allow read: if isOwner() || (signedIn() && resource.data.reporterUid == request.auth.uid);
+      allow create: if ownsRequestedReporterUid()
+        && isValidReportTarget(request.resource.data.targetType)
+        && request.resource.data.targetId is string
+        && request.resource.data.reason is string;
+      allow update, delete: if isOwner();
+    }
+
+    match /moderationActions/{actionId} {
+      allow read, write: if isOwner();
+    }
+
+    match /coachAssignments/{assignmentId} {
+      allow read: if isOwner()
+        || (isCoach() && resource.data.coachUid == request.auth.uid)
+        || (signedIn() && resource.data.userUid == request.auth.uid);
+      allow write: if isOwner();
+    }
+
+    match /adminAuditLogs/{auditLogId} {
+      allow read: if isOwner();
+      allow create: if isOwner();
+      allow update, delete: if false;
+    }
+
     match /userPrograms/{programId} {
       allow read: if signedIn()
         && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email || isOwner());
@@ -87,6 +237,53 @@ service cloud.firestore {
       allow read: if signedIn()
         && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email || subscriptionId == request.auth.uid || isOwner());
       allow write: if isOwner();
+    }
+
+    match /analyticsEvents/{eventId} {
+      allow read: if isOwner();
+      allow create: if isOwner()
+        || (signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && isKnownAnalyticsEvent(request.resource.data.eventName)
+          && request.resource.data.data is map
+          && request.resource.data.context is map);
+      allow update, delete: if isOwner();
+    }
+
+    match /analyticsUserRegisteredEvents/{eventId} {
+      allow read: if isOwner();
+      allow create: if isOwner() || isValidAnalyticsEventCreate("user_registered");
+      allow update, delete: if isOwner();
+    }
+
+    match /analyticsSubscriptionStartedEvents/{eventId} {
+      allow read: if isOwner();
+      allow create: if isOwner() || isValidAnalyticsEventCreate("subscription_started");
+      allow update, delete: if isOwner();
+    }
+
+    match /analyticsWorkoutStartedEvents/{eventId} {
+      allow read: if isOwner();
+      allow create: if isOwner() || isValidAnalyticsEventCreate("workout_started");
+      allow update, delete: if isOwner();
+    }
+
+    match /analyticsWorkoutCompletedEvents/{eventId} {
+      allow read: if isOwner();
+      allow create: if isOwner() || isValidAnalyticsEventCreate("workout_completed");
+      allow update, delete: if isOwner();
+    }
+
+    match /analyticsProgramOpenedEvents/{eventId} {
+      allow read: if isOwner();
+      allow create: if isOwner() || isValidAnalyticsEventCreate("program_opened");
+      allow update, delete: if isOwner();
+    }
+
+    match /analyticsCommunityPostCreatedEvents/{eventId} {
+      allow read: if isOwner();
+      allow create: if isOwner() || isValidAnalyticsEventCreate("community_post_created");
+      allow update, delete: if isOwner();
     }
 
     match /{document=**} {
