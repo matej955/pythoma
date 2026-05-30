@@ -26,6 +26,8 @@ import {
   getDoc,
   setDoc,
   deleteDoc,
+  runTransaction,
+  increment,
   serverTimestamp,
 } from "firebase/firestore";
 import { getFirestore } from "firebase/firestore";
@@ -79,6 +81,7 @@ export const db = getFirestore(app);
 
 const APP_CONTENT_COLLECTION = "appContent";
 const APP_CONTENT_DOCUMENT = "sanctuary";
+const HIDDEN_MESSAGE_STATES = new Set(["hidden", "removed", "blocked"]);
 
 function appContentRef() {
   return doc(db, APP_CONTENT_COLLECTION, APP_CONTENT_DOCUMENT);
@@ -204,6 +207,7 @@ export function subscribeToCommunityMessages(onMessages, onError) {
           id: doc.id,
           ...doc.data(),
         }))
+        .filter(isCommunityMessageVisible)
         .reverse();
       onMessages(messages);
     },
@@ -226,7 +230,7 @@ export async function getCommunityMessagesCount() {
 export async function fetchLatestCommunityMessages(pageSize = 20) {
   const q = query(collection(db, "communityMessages"), orderBy("createdAt", "desc"), limit(pageSize));
   const snapshot = await getDocs(q);
-  const messages = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).reverse();
+  const messages = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter(isCommunityMessageVisible).reverse();
   const lastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
   return { messages, lastVisible };
 }
@@ -236,7 +240,7 @@ export async function fetchCommunityMessagesBefore(lastVisible, pageSize = 20) {
   if (!lastVisible) return { messages: [], lastVisible: null, hasMore: false };
   const q = query(collection(db, "communityMessages"), orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
   const snapshot = await getDocs(q);
-  const messages = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).reverse();
+  const messages = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter(isCommunityMessageVisible).reverse();
   const newLastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
   return { messages, lastVisible: newLastVisible, hasMore: snapshot.size === pageSize };
 }
@@ -247,7 +251,7 @@ export function subscribeToNewCommunityMessages(onNewMessage, onError) {
   return onSnapshot(
     q,
     (snapshot) => {
-      const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter(isCommunityMessageVisible);
       const newest = docs[0];
       if (newest) onNewMessage(newest);
     },
@@ -457,16 +461,96 @@ export function subscribeToMessageLikes(messageId, onChange, onError) {
   );
 }
 
+function isCommunityMessageVisible(message) {
+  const visibility = String(message?.visibility || "visible").toLowerCase();
+  const moderationStatus = String(message?.moderationStatus || "").toLowerCase();
+  const status = String(message?.status || "").toLowerCase();
+  return !HIDDEN_MESSAGE_STATES.has(visibility) && !HIDDEN_MESSAGE_STATES.has(moderationStatus) && !HIDDEN_MESSAGE_STATES.has(status);
+}
+
+export async function toggleMessageReaction(messageId, emoji) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Not authenticated");
+  if (!messageId || !emoji) throw new Error("Missing reaction");
+
+  const messageRef = doc(db, "communityMessages", messageId);
+  const reactionRef = doc(db, "communityMessages", messageId, "reactions", uid);
+
+  return runTransaction(db, async (transaction) => {
+    const reactionSnap = await transaction.get(reactionRef);
+    const previousEmoji = reactionSnap.exists() ? reactionSnap.data()?.emoji : "";
+    const removingSameReaction = previousEmoji === emoji;
+    const aggregateUpdate = {
+      reactionUpdatedAt: serverTimestamp(),
+    };
+
+    if (previousEmoji) {
+      aggregateUpdate[`reactionCounts.${previousEmoji}`] = increment(-1);
+    }
+
+    if (removingSameReaction) {
+      transaction.delete(reactionRef);
+      transaction.update(messageRef, aggregateUpdate);
+      return { emoji: "", previousEmoji };
+    }
+
+    aggregateUpdate[`reactionCounts.${emoji}`] = increment(1);
+    transaction.set(
+      reactionRef,
+      {
+        uid,
+        emoji,
+        updatedAt: serverTimestamp(),
+        createdAt: reactionSnap.exists() ? reactionSnap.data()?.createdAt || serverTimestamp() : serverTimestamp(),
+      },
+      { merge: true },
+    );
+    transaction.update(messageRef, aggregateUpdate);
+    return { emoji, previousEmoji };
+  });
+}
+
+export function subscribeToMessageReactions(messageId, onChange, onError) {
+  const uid = auth.currentUser?.uid || "";
+  const reactionsQuery = query(collection(db, "communityMessages", messageId, "reactions"));
+  return onSnapshot(
+    reactionsQuery,
+    (snapshot) => {
+      const counts = {};
+      let myReaction = "";
+      snapshot.docs.forEach((reactionDoc) => {
+        const data = reactionDoc.data();
+        const emoji = data?.emoji;
+        if (!emoji) return;
+        counts[emoji] = (counts[emoji] || 0) + 1;
+        if (reactionDoc.id === uid || data.uid === uid) {
+          myReaction = emoji;
+        }
+      });
+      onChange({ counts, myReaction });
+    },
+    onError,
+  );
+}
+
 export function sendCommunityMessage({ text, user, attachments = [] }) {
   const cleanText = (text || "").trim();
   if (!cleanText && (!attachments || attachments.length === 0)) return Promise.resolve();
 
   return addDoc(collection(db, "communityMessages"), {
+    schemaVersion: 2,
+    contentType: "globalChatMessage",
     text: cleanText,
     attachments,
     name: user?.name || "Ratnica",
     email: user?.email || "",
     uid: auth.currentUser?.uid || "",
+    visibility: "visible",
+    moderationStatus: "pendingReview",
+    reviewStatus: "pending",
+    reportCount: 0,
+    reactionCounts: {},
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 }

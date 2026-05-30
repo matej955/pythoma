@@ -6,6 +6,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isOwner() {
+      return signedIn()
+        && (request.auth.token.owner == true || request.auth.token.admin == true);
+    }
+
     function isSelf(userId) {
       return signedIn() && request.auth.uid == userId;
     }
@@ -14,9 +19,21 @@ service cloud.firestore {
       return signedIn() && request.resource.data.uid == request.auth.uid;
     }
 
+    function isReactionAggregateUpdate() {
+      return signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["reactionCounts", "reactionUpdatedAt"]);
+    }
+
+    function isValidReactionWrite(userId) {
+      return isSelf(userId)
+        && ownsRequestedUid()
+        && request.resource.data.emoji is string
+        && request.resource.data.emoji.size() <= 16;
+    }
+
     match /appContent/{document=**} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isOwner();
     }
 
     match /communityMessages/{messageId} {
@@ -25,40 +42,51 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 4000;
-      allow update, delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update: if (signedIn() && resource.data.uid == request.auth.uid)
+        || isReactionAggregateUpdate()
+        || isOwner();
+      allow delete: if (signedIn() && resource.data.uid == request.auth.uid) || isOwner();
 
       match /likes/{userId} {
         allow read: if true;
         allow create: if isSelf(userId) && ownsRequestedUid();
-        allow delete: if isSelf(userId);
-        allow update: if false;
+        allow delete: if isSelf(userId) || isOwner();
+        allow update: if isOwner();
+      }
+
+      match /reactions/{userId} {
+        allow read: if true;
+        allow create, update: if isValidReactionWrite(userId);
+        allow delete: if isSelf(userId) || isOwner();
       }
     }
 
     match /users/{userId} {
-      allow read, write: if isSelf(userId);
+      allow read: if isSelf(userId) || isOwner();
+      allow write: if isSelf(userId);
 
       match /{document=**} {
-        allow read, write: if isSelf(userId);
+        allow read: if isSelf(userId) || isOwner();
+        allow write: if isSelf(userId);
       }
     }
 
     match /userPrograms/{programId} {
       allow read: if signedIn()
-        && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email);
-      allow write: if false;
+        && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email || isOwner());
+      allow write: if isOwner();
     }
 
     match /subscriptions/{subscriptionId} {
       allow read: if signedIn()
-        && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email || subscriptionId == request.auth.uid);
-      allow write: if false;
+        && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email || subscriptionId == request.auth.uid || isOwner());
+      allow write: if isOwner();
     }
 
     match /userSubscriptions/{subscriptionId} {
       allow read: if signedIn()
-        && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email || subscriptionId == request.auth.uid);
-      allow write: if false;
+        && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email || subscriptionId == request.auth.uid || isOwner());
+      allow write: if isOwner();
     }
 
     match /{document=**} {
