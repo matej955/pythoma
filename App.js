@@ -39,11 +39,12 @@ import {
   fetchCommunityMessagesBefore,
   subscribeToNewCommunityMessages,
   getUserActivePrograms,
+  getUserSubscription,
   getUserProfile,
   saveUserProfile,
   uploadFileAsync,
-  toggleMessageLike,
-  getLikesCount,
+  toggleMessageReaction,
+  subscribeToMessageReactions,
 } from "./firebaseConfig";
 import DEFAULT_APP_CONTENT from "./appContent";
 
@@ -122,11 +123,26 @@ function normalizePotions(items, images) {
 
 function normalizeAppSettings(settings = {}) {
   const defaults = DEFAULT_APP_CONTENT.settings;
+  const defaultCommunityReactions = defaults.communityReactions || {};
+  const communityReactions = settings.communityReactions || {};
+  const allCommunityReactions = arrayWithFallback(communityReactions.all, defaultCommunityReactions.all);
+  const quickCommunityReactions = arrayWithFallback(communityReactions.quick, defaultCommunityReactions.quick).filter((emoji) =>
+    allCommunityReactions.includes(emoji),
+  );
+
   return {
     ...defaults,
     ...settings,
     trainingTabs: arrayWithFallback(settings.trainingTabs, defaults.trainingTabs),
     communityTabs: arrayWithFallback(settings.communityTabs, defaults.communityTabs),
+    communityReactions: {
+      ...defaultCommunityReactions,
+      ...communityReactions,
+      default: communityReactions.default || defaultCommunityReactions.default || allCommunityReactions[0] || "\u2764\ufe0f",
+      quick: quickCommunityReactions.length ? quickCommunityReactions : allCommunityReactions.slice(0, 4),
+      all: allCommunityReactions,
+      enabled: communityReactions.enabled !== false,
+    },
     quickActions: arrayWithFallback(settings.quickActions, defaults.quickActions),
     todayTasks: arrayWithFallback(settings.todayTasks, defaults.todayTasks),
     uploadModes: arrayWithFallback(settings.uploadModes, defaults.uploadModes),
@@ -631,6 +647,7 @@ export default function App() {
   const [communityTab, setCommunityTab] = useState("Chat");
   const [message, setMessage] = useState("");
   const [profile, setProfile] = useState({ name: "Ratnica", goal: "Disciplina. Fokus. Sloboda.", email: "", age: "", level: "Pocetnica" });
+  const [subscriptionRecords, setSubscriptionRecords] = useState([]);
   const content = useSyncedAppContent();
 
   const googleConfigured = Object.values(googleClientIds).some(Boolean);
@@ -737,6 +754,26 @@ export default function App() {
     };
   }, [session?.uid, session?.type]);
 
+  useEffect(() => {
+    if (session?.type !== "firebase") {
+      setSubscriptionRecords([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    getUserSubscription({ uid: session.uid, email: session.email })
+      .then((records) => {
+        if (!cancelled) setSubscriptionRecords(records || []);
+      })
+      .catch(() => {
+        if (!cancelled) setSubscriptionRecords([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.uid, session?.email, session?.type]);
+
   async function handleProfileSave(nextProfile) {
     const profileWithEmail = { ...nextProfile, email: session?.email || nextProfile.email || "" };
     setProfile(profileWithEmail);
@@ -819,7 +856,7 @@ export default function App() {
               content={content}
             />
           )}
-          {screen === "program" && <ProgramDetailScreen program={screenParams} goBack={goBack} content={content} />}
+          {screen === "program" && <ProgramDetailScreen program={screenParams} goBack={goBack} content={content} subscriptions={subscriptionRecords} />}
           {screen === "wellness" && <WellnessScreen goBack={goBack} content={content} />}
           {screen === "profile" && <ProfileScreen profile={profile} setProfile={handleProfileSave} goBack={goBack} onLogout={handleLogout} content={content} />}
         </ScrollView>
@@ -982,6 +1019,40 @@ function formatMessageTime(createdAt) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function cleanReactionCounts(counts = {}) {
+  return Object.entries(counts || {}).reduce((nextCounts, [emoji, count]) => {
+    const numericCount = Number(count) || 0;
+    if (emoji && numericCount > 0) {
+      nextCounts[emoji] = numericCount;
+    }
+    return nextCounts;
+  }, {});
+}
+
+function orderedReactionCounts(counts = {}, quickReactions = []) {
+  const cleanCounts = cleanReactionCounts(counts);
+  return Object.entries(cleanCounts).sort((left, right) => {
+    const leftQuickIndex = quickReactions.indexOf(left[0]);
+    const rightQuickIndex = quickReactions.indexOf(right[0]);
+    const leftRank = leftQuickIndex === -1 ? quickReactions.length : leftQuickIndex;
+    const rightRank = rightQuickIndex === -1 ? quickReactions.length : rightQuickIndex;
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return right[1] - left[1];
+  });
+}
+
+function hasActiveSubscription(records = [], requiredTier = "") {
+  const required = String(requiredTier || "").toLowerCase();
+  return records.some((record) => {
+    const status = String(record.status || "").toLowerCase();
+    const tier = String(record.tier || record.plan || record.subscriptionTier || "").toLowerCase();
+    const active = record.active === true || ["active", "trialing", "paid"].includes(status);
+    if (!active) return false;
+    if (!required) return true;
+    return tier === required || tier === "all" || tier === "premium";
+  });
+}
+
 function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session, profile, uploadQueue, content = FALLBACK_CONTENT }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(true);
@@ -996,13 +1067,19 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
   const [localMessage, setLocalMessage] = useState(message || "");
   const [openProgram, setOpenProgram] = useState(null);
   const [openRecipe, setOpenRecipe] = useState(null);
-  const [likes, setLikes] = useState({});
-  const [likesCounts, setLikesCounts] = useState({});
+  const [messageReactions, setMessageReactions] = useState({});
+  const [reactionPicker, setReactionPicker] = useState({ messageId: null, expanded: false });
   const [imageViewer, setImageViewer] = useState({ visible: false, images: [], index: 0 });
+  const lastReactionTapRef = useRef({ messageId: null, timestamp: 0 });
   const images = content.images || image;
   const contentPotions = content.potions || potions;
   const contentPosts = content.communityPosts || communityPosts;
   const settings = content.settings || FALLBACK_CONTENT.settings;
+  const communityReactions = settings.communityReactions || FALLBACK_CONTENT.settings.communityReactions;
+  const reactionsEnabled = communityReactions.enabled !== false;
+  const defaultReaction = communityReactions.default || communityReactions.quick?.[0] || "\u2764\ufe0f";
+  const quickReactions = arrayWithFallback(communityReactions.quick, FALLBACK_CONTENT.settings.communityReactions.quick);
+  const allReactions = arrayWithFallback(communityReactions.all, FALLBACK_CONTENT.settings.communityReactions.all);
 
   function openImageViewer(images, index) {
     setImageViewer({ visible: true, images: images || [], index: index || 0 });
@@ -1055,6 +1132,8 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
 
   const posts = contentPosts.filter((post) => post.tab === tab);
   const isChat = tab === "Chat";
+  const chatMessageIds = useMemo(() => chatMessages.map((chatMessage) => chatMessage.id).filter(Boolean), [chatMessages]);
+  const chatMessageIdsKey = useMemo(() => chatMessageIds.join("|"), [chatMessageIds]);
 
   useEffect(() => {
     if (!isChat) return undefined;
@@ -1069,24 +1148,16 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
         const { messages, lastVisible: last } = await fetchLatestCommunityMessages(20);
         if (cancelled) return;
         setChatMessages(messages);
-        // fetch likes counts for loaded messages (page)
-        (async () => {
-          try {
-            const counts = {};
-            await Promise.all(
-              messages.map(async (m) => {
-                try {
-                  counts[m.id] = await getLikesCount(m.id);
-                } catch (err) {
-                  counts[m.id] = 0;
-                }
-              }),
-            );
-            setLikesCounts(counts);
-          } catch (err) {
-            // ignore
-          }
-        })();
+        setMessageReactions((current) => {
+          const nextReactions = { ...current };
+          messages.forEach((loadedMessage) => {
+            nextReactions[loadedMessage.id] = {
+              counts: cleanReactionCounts(loadedMessage.reactionCounts),
+              myReaction: nextReactions[loadedMessage.id]?.myReaction || "",
+            };
+          });
+          return nextReactions;
+        });
         setLastVisible(last);
         setHasMore(!!last && total > messages.length);
         setChatError("");
@@ -1120,6 +1191,32 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
     };
   }, [isChat]);
 
+  useEffect(() => {
+    if (!isChat || chatMessageIds.length === 0) return undefined;
+
+    const unsubscribers = chatMessageIds.map((messageId) =>
+      subscribeToMessageReactions(
+        messageId,
+        ({ counts, myReaction }) => {
+          setMessageReactions((current) => ({
+            ...current,
+            [messageId]: {
+              counts: cleanReactionCounts(counts),
+              myReaction,
+            },
+          }));
+        },
+        (err) => {
+          console.log("subscribe message reactions error", err);
+        },
+      ),
+    );
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe && unsubscribe());
+    };
+  }, [isChat, chatMessageIdsKey]);
+
   async function loadOlderMessages() {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
@@ -1127,24 +1224,16 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
       const { messages: older, lastVisible: newLast, hasMore: more } = await fetchCommunityMessagesBefore(lastVisible, 20);
       if (older && older.length) {
         setChatMessages((current) => [...older, ...current]);
-        // fetch likes counts for newly loaded older messages
-        (async () => {
-          try {
-            const counts = {};
-            await Promise.all(
-              older.map(async (m) => {
-                try {
-                  counts[m.id] = await getLikesCount(m.id);
-                } catch (err) {
-                  counts[m.id] = 0;
-                }
-              }),
-            );
-            setLikesCounts((cur) => ({ ...counts, ...cur }));
-          } catch (err) {
-            // ignore
-          }
-        })();
+        setMessageReactions((current) => {
+          const nextReactions = { ...current };
+          older.forEach((loadedMessage) => {
+            nextReactions[loadedMessage.id] = {
+              counts: cleanReactionCounts(loadedMessage.reactionCounts),
+              myReaction: nextReactions[loadedMessage.id]?.myReaction || "",
+            };
+          });
+          return nextReactions;
+        });
         setLastVisible(newLast);
         setHasMore(more);
       } else {
@@ -1258,6 +1347,24 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
     setRecipePickerOpen(false);
   }
 
+  function getRecipeDetails(recipeAttachment) {
+    if (!recipeAttachment) return null;
+    const meta = recipeAttachment.meta || {};
+    const recipeKey = recipeAttachment.recipeId || meta.recipeId || recipeAttachment.title || meta.title || "";
+    const catalogRecipe = contentPotions.find((recipe) => recipe.id === recipeKey || recipe.title === recipeKey) || {};
+    return {
+      ...catalogRecipe,
+      ...meta,
+      ...recipeAttachment,
+      title: recipeAttachment.title || meta.title || catalogRecipe.title || "Recipe",
+      image: recipeAttachment.image || meta.image || catalogRecipe.image || images.smoothie,
+      timing: recipeAttachment.timing || meta.timing || catalogRecipe.timing || "",
+      ingredients: arrayWithFallback(recipeAttachment.ingredients || meta.ingredients, catalogRecipe.ingredients || []),
+      preparation: recipeAttachment.preparation || meta.preparation || catalogRecipe.preparation || "",
+      benefits: recipeAttachment.benefits || meta.benefits || catalogRecipe.benefits || "",
+    };
+  }
+
   async function sendMessage() {
     const cleanMessage = (localMessage || "").trim();
     if (!cleanMessage && attachments.length === 0) return;
@@ -1319,24 +1426,88 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
     setAttachments((cur) => cur.filter((a) => a.id !== id));
   }
 
-  async function toggleLike(messageId) {
-    if (session?.type !== "firebase") {
-      Alert.alert("Like", "Please sign in to like posts.");
+  function getReactionCountsForMessage(post) {
+    return messageReactions[post.id]?.counts || cleanReactionCounts(post.reactionCounts);
+  }
+
+  function getMyReactionForMessage(post) {
+    return messageReactions[post.id]?.myReaction || "";
+  }
+
+  function openReactionPicker(messageId) {
+    if (!reactionsEnabled) return;
+    setReactionPicker({ messageId, expanded: false });
+  }
+
+  function closeReactionPicker() {
+    setReactionPicker({ messageId: null, expanded: false });
+  }
+
+  function handleMessageTap(messageId) {
+    if (!reactionsEnabled) return;
+    if (reactionPicker.messageId) {
+      closeReactionPicker();
+      lastReactionTapRef.current = { messageId: null, timestamp: 0 };
       return;
     }
-    try {
-      const res = await toggleMessageLike(messageId);
-      setLikes((cur) => ({ ...cur, [messageId]: res.liked }));
-      setLikesCounts((cur) => ({ ...cur, [messageId]: Math.max((cur[messageId] || 0) + (res.liked ? 1 : -1), 0) }));
-    } catch (err) {
-      Alert.alert("Like", err?.message || String(err));
+
+    const now = Date.now();
+    const lastTap = lastReactionTapRef.current;
+    if (lastTap.messageId === messageId && now - lastTap.timestamp < 320) {
+      lastReactionTapRef.current = { messageId: null, timestamp: 0 };
+      reactToMessage(messageId, defaultReaction);
+      return;
     }
+    lastReactionTapRef.current = { messageId, timestamp: now };
+  }
+
+  async function reactToMessage(messageId, emoji) {
+    if (!reactionsEnabled) return;
+    if (session?.type !== "firebase") {
+      Alert.alert("Reaction", "Prijavi se za reakcije na poruke.");
+      return;
+    }
+    const previousState = messageReactions[messageId] || { counts: {}, myReaction: "" };
+    const previousReaction = previousState.myReaction || "";
+    const removingSameReaction = previousReaction === emoji;
+    try {
+      setMessageReactions((current) => {
+        const currentState = current[messageId] || { counts: {}, myReaction: "" };
+        const nextCounts = { ...currentState.counts };
+        if (previousReaction) {
+          nextCounts[previousReaction] = Math.max((nextCounts[previousReaction] || 0) - 1, 0);
+        }
+        if (!removingSameReaction) {
+          nextCounts[emoji] = (nextCounts[emoji] || 0) + 1;
+        }
+        return {
+          ...current,
+          [messageId]: {
+            counts: cleanReactionCounts(nextCounts),
+            myReaction: removingSameReaction ? "" : emoji,
+          },
+        };
+      });
+      await toggleMessageReaction(messageId, emoji);
+      closeReactionPicker();
+    } catch (err) {
+      setMessageReactions((current) => ({
+        ...current,
+        [messageId]: previousState,
+      }));
+      Alert.alert("Reaction", err?.message || String(err));
+    }
+  }
+
+  function handleCommunityTabChange(nextTab) {
+    closeReactionPicker();
+    setTab(nextTab);
   }
 
   return (
     <>
       <ScreenHeader title="COMMUNITY" onBack={goBack} />
-      <Tabs tabs={settings.communityTabs || FALLBACK_CONTENT.settings.communityTabs} active={tab} setActive={setTab} />
+      <Tabs tabs={settings.communityTabs || FALLBACK_CONTENT.settings.communityTabs} active={tab} setActive={handleCommunityTabChange} />
       <View style={styles.communityList}>
         {isChat ? (
           <>
@@ -1350,8 +1521,15 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
                 <Text style={styles.chatStatus}>{loadingMore ? "Ucitavam..." : "Ucitaj ranije poruke"}</Text>
               </Pressable>
             )}
-            {chatMessages.map((post) => (
-              <View key={post.id} style={styles.postCard}>
+            {chatMessages.map((post) => {
+              const reactionCounts = getReactionCountsForMessage(post);
+              const reactionEntries = orderedReactionCounts(reactionCounts, quickReactions);
+              const myReaction = getMyReactionForMessage(post);
+              const pickerOpen = reactionPicker.messageId === post.id;
+              const pickerReactions = reactionPicker.expanded ? allReactions : quickReactions;
+
+              return (
+                <Pressable key={post.id} style={styles.postCard} onPress={() => handleMessageTap(post.id)} onLongPress={() => openReactionPicker(post.id)} delayLongPress={260}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{(post.name || "R").slice(0, 1)}</Text>
                 </View>
@@ -1382,25 +1560,55 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
                               <View style={styles.attachmentBadge}><Text style={styles.attachmentBadgeText}>Recipe</Text></View>
                             </Pressable>
                           )}
-                          {att.type === "progress" && (
-                            <View style={styles.progressMiniWrap}>
-                              <Pressable style={styles.messageImageWrap} onPress={() => (typeof go === "function" ? go("program", att.meta || att) : setOpenProgram(att))}>
-                                <Image source={{ uri: att.image }} style={styles.messageImage} />
-                                <View style={styles.attachmentBadge}><Text style={styles.attachmentBadgeText}>Progress</Text></View>
-                              </Pressable>
-                              <Pressable style={styles.progressLike} onPress={() => toggleLike(post.id)}>
-                                <Text style={{ color: likes[post.id] ? colors.danger : colors.muted }}>{likes[post.id] ? "♥" : "♡"}</Text>
-                              </Pressable>
-                              <Text style={styles.likesCount}>{likesCounts[post.id] || 0}</Text>
+                            {att.type === "progress" && (
+                              <View style={styles.progressMiniWrap}>
+                                <Pressable style={styles.messageImageWrap} onPress={() => (typeof go === "function" ? go("program", att.meta || att) : setOpenProgram(att))}>
+                                  <Image source={{ uri: att.image }} style={styles.messageImage} />
+                                  <View style={styles.attachmentBadge}><Text style={styles.attachmentBadgeText}>Progress</Text></View>
+                                </Pressable>
+                                <View style={styles.progressShareInfo}>
+                                  <Text style={styles.progressShareName}>{att.userName || post.name || "Ratnica"}</Text>
+                                  <Text style={styles.progressShareTitle}>{att.title || "Program"}</Text>
+                                  <Text style={styles.progressSharePercent}>{att.progressPercent ?? 0}%</Text>
+                                </View>
+                                <Pressable style={[styles.reactionChip, myReaction === defaultReaction && styles.reactionChipActive]} onPress={() => reactToMessage(post.id, defaultReaction)}>
+                                  <Text style={styles.reactionChipText}>{defaultReaction}</Text>
+                                </Pressable>
                             </View>
                           )}
                         </View>
                       ))}
                     </View>
                   )}
-                </View>
-              </View>
-            ))}
+                  {reactionEntries.length > 0 && (
+                    <View style={styles.reactionSummary}>
+                      {reactionEntries.map(([emoji, count]) => (
+                        <Pressable key={emoji} style={[styles.reactionChip, myReaction === emoji && styles.reactionChipActive]} onPress={() => reactToMessage(post.id, emoji)}>
+                          <Text style={styles.reactionChipText}>{emoji}{count > 1 ? ` ${count}` : ""}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                  {pickerOpen && reactionsEnabled && (
+                    <View style={[styles.reactionPickerBubble, reactionPicker.expanded && styles.reactionPickerBubbleExpanded]}>
+                      <View style={[styles.reactionPickerRow, reactionPicker.expanded && styles.reactionPickerRowExpanded]}>
+                        {pickerReactions.map((emoji) => (
+                          <Pressable key={emoji} style={[styles.reactionPickerButton, myReaction === emoji && styles.reactionPickerButtonActive]} onPress={() => reactToMessage(post.id, emoji)}>
+                            <Text style={styles.reactionPickerEmoji}>{emoji}</Text>
+                          </Pressable>
+                        ))}
+                        {!reactionPicker.expanded && (
+                          <Pressable style={styles.reactionPickerButton} onPress={() => setReactionPicker({ messageId: post.id, expanded: true })}>
+                            <Text style={styles.reactionPickerPlus}>+</Text>
+                          </Pressable>
+                        )}
+                      </View>
+                    </View>
+                  )}
+                  </View>
+                </Pressable>
+              );
+            })}
           </>
         ) : (
           <>
@@ -1431,17 +1639,24 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
       {isChat && (
         <>
           <View style={styles.messageBar}>
-            <Pressable style={styles.attachButton} onPress={() => setAttachModalOpen(true)}>
+            <Pressable style={styles.attachButton} onPress={() => {
+              closeReactionPicker();
+              setAttachModalOpen(true);
+            }}>
               <Text style={styles.attachText}>+</Text>
             </Pressable>
               <TextInput
                 value={localMessage}
                 onChangeText={setLocalMessage}
+                onFocus={closeReactionPicker}
                 placeholder="Napisi poruku..."
                 placeholderTextColor={colors.muted}
                 style={styles.messageInput}
               />
-            <Pressable style={[styles.sendCircle, sending && styles.disabledButton]} onPress={sendMessage} disabled={sending}>
+            <Pressable style={[styles.sendCircle, sending && styles.disabledButton]} onPress={() => {
+              closeReactionPicker();
+              sendMessage();
+            }} disabled={sending}>
               <Text style={styles.sendText}>{sending ? "..." : "✈"}</Text>
             </Pressable>
           </View>
@@ -1538,14 +1753,31 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
           {/* recipe detail modal */}
           <Modal visible={!!openRecipe} transparent animationType="slide" onRequestClose={() => setOpenRecipe(null)}>
             <Pressable style={styles.drawerShade} onPress={() => setOpenRecipe(null)}>
-              <View style={[styles.drawer, { width: 320, margin: 40 }]}>
-                {openRecipe && (
-                  <>
-                    <Image source={{ uri: openRecipe.image }} style={{ width: "100%", height: 140, borderRadius: 12 }} />
-                    <Text style={styles.potionSectionTitle}>{openRecipe.title}</Text>
-                  </>
-                )}
-              </View>
+              <Pressable style={[styles.drawer, styles.recipeDetailDrawer]} onPress={(event) => event.stopPropagation()}>
+                {openRecipe && (() => {
+                  const recipeDetails = getRecipeDetails(openRecipe);
+                  return (
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                      <Image source={{ uri: recipeDetails.image }} style={{ width: "100%", height: 140, borderRadius: 12 }} />
+                      <Text style={styles.potionSectionTitle}>{recipeDetails.title}</Text>
+                      {!!recipeDetails.timing && <Text style={styles.potionTiming}>{recipeDetails.timing}</Text>}
+                      {recipeDetails.ingredients.length > 0 && <PotionSection title="Sastojci" items={recipeDetails.ingredients} />}
+                      {!!recipeDetails.preparation && (
+                        <>
+                          <Text style={styles.potionSectionTitle}>Priprema</Text>
+                          <Text style={styles.potionBody}>{recipeDetails.preparation}</Text>
+                        </>
+                      )}
+                      {!!recipeDetails.benefits && (
+                        <>
+                          <Text style={styles.potionSectionTitle}>Benefiti</Text>
+                          <Text style={styles.potionBody}>{recipeDetails.benefits}</Text>
+                        </>
+                      )}
+                    </ScrollView>
+                  );
+                })()}
+              </Pressable>
             </Pressable>
           </Modal>
           {/* full screen image viewer */}
@@ -1883,9 +2115,28 @@ function ScreenHeader({ title, right, compact, onBack, onRight }) {
   );
 }
 
-function ProgramDetailScreen({ program, goBack, content = FALLBACK_CONTENT }) {
+function ProgramDetailScreen({ program, goBack, content = FALLBACK_CONTENT, subscriptions = [] }) {
   const prog = program || {};
   const images = content.images || image;
+  const requiresSubscription = prog.subscriptionRequired !== false;
+  const requiredTier = prog.requiredSubscriptionTier || prog.subscriptionTier || "";
+  const hasAccess = !requiresSubscription || hasActiveSubscription(subscriptions, requiredTier);
+
+  if (requiresSubscription && !hasAccess) {
+    return (
+      <>
+        <ScreenHeader title={prog.title || "Program"} onBack={goBack} />
+        <View style={styles.gazzCard}>
+          <Text style={styles.potionSectionTitle}>Subscription required</Text>
+          <Text style={styles.potionBody}>
+            This program is part of the subscriber library. Activate your subscription to view workouts, schedule, and program details.
+          </Text>
+          {!!requiredTier && <Text style={styles.uploadModeLabel}>Required plan: {requiredTier}</Text>}
+        </View>
+      </>
+    );
+  }
+
   return (
     <>
       <ScreenHeader title={prog.title || "Program"} onBack={goBack} />
@@ -2218,6 +2469,49 @@ const styles = StyleSheet.create({
   postTime: { color: colors.ink, fontSize: 11 },
   postText: { color: colors.ink, fontSize: 13, marginTop: 4 },
   reactions: { color: colors.muted, fontSize: 12, marginTop: 7 },
+  reactionSummary: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 9 },
+  reactionChip: {
+    minHeight: 30,
+    minWidth: 36,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 9,
+    backgroundColor: "rgba(255, 250, 240, 0.68)",
+  },
+  reactionChipActive: { borderColor: colors.olive, backgroundColor: "rgba(216, 199, 170, 0.78)" },
+  reactionChipText: { color: colors.ink, fontSize: 14, fontWeight: "700" },
+  reactionPickerBubble: {
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 999,
+    marginTop: 10,
+    padding: 5,
+    backgroundColor: colors.white,
+    shadowColor: colors.forest,
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 6,
+  },
+  reactionPickerBubbleExpanded: { borderRadius: 24, padding: 7 },
+  reactionPickerRow: { flexDirection: "row", flexWrap: "wrap", gap: 5, maxWidth: 205 },
+  reactionPickerRowExpanded: { maxWidth: 190 },
+  reactionPickerButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(239, 227, 208, 0.7)",
+  },
+  reactionPickerButtonActive: { backgroundColor: colors.sage },
+  reactionPickerEmoji: { fontSize: 18 },
+  reactionPickerPlus: { color: colors.forest, fontSize: 20, fontWeight: "700" },
   chatStatus: {
     borderWidth: 1,
     borderColor: colors.line,
@@ -2366,6 +2660,7 @@ const styles = StyleSheet.create({
   logoutText: { color: colors.white, fontWeight: "700" },
   drawerShade: { flex: 1, backgroundColor: "rgba(0,0,0,0.25)" },
   drawer: { width: 278, flex: 1, paddingTop: 58, paddingHorizontal: 18, backgroundColor: colors.paper },
+  recipeDetailDrawer: { width: 320, maxHeight: "82%", margin: 40, paddingTop: 24, paddingBottom: 24, borderRadius: 18 },
   drawerItem: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, borderBottomWidth: 1, borderBottomColor: colors.line },
   drawerIcon: { color: colors.forest, width: 24, fontWeight: "700" },
   drawerText: { color: colors.ink, fontSize: 16 },
@@ -2419,7 +2714,11 @@ const styles = StyleSheet.create({
   viewerCounter: { position: "absolute", bottom: 40, color: colors.white, fontSize: 14 },
   messageImage: { width: 180, height: 110, borderRadius: 10, resizeMode: "cover" },
   messageImageWrap: { borderRadius: 10, overflow: "hidden" },
-  progressMiniWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
+  progressMiniWrap: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 },
+  progressShareInfo: { flexShrink: 1, minWidth: 112, maxWidth: 170 },
+  progressShareName: { color: colors.muted, fontSize: 11, fontWeight: "700" },
+  progressShareTitle: { color: colors.ink, fontSize: 13, fontWeight: "700", marginTop: 2 },
+  progressSharePercent: { color: colors.forest, fontSize: 18, fontWeight: "700", marginTop: 3 },
   progressLike: { marginLeft: 8, padding: 6 },
   likesCount: { color: colors.muted, marginLeft: 6, fontSize: 12 },
 });

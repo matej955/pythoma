@@ -83,6 +83,23 @@ export const DEFAULT_APP_CONTENT = {
   settings: {
     trainingTabs: ["Svi programi", "Teretana", "Kod kuce", "Mobilnost"],
     communityTabs: ["Chat", "Grupe", "Aktivnosti", "Izazovi"],
+    communityReactions: {
+      enabled: true,
+      default: "\u2764\ufe0f",
+      quick: ["\u2764\ufe0f", "\ud83d\udd25", "\ud83d\udc4f", "\ud83d\ude02"],
+      all: [
+        "\u2764\ufe0f",
+        "\ud83d\udd25",
+        "\ud83d\udc4f",
+        "\ud83d\ude02",
+        "\ud83d\ude0d",
+        "\ud83d\ude4f",
+        "\ud83d\udcaa",
+        "\u2728",
+        "\ud83e\udd70",
+        "\ud83d\ude2e",
+      ],
+    },
     quickActions: [
       { icon: "T", label: "Treninzi", screen: "training" },
       { icon: "N", label: "Prehrana", screen: "wellness" },
