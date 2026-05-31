@@ -1,95 +1,31 @@
-# Structure Firebase models and admin-ready data contracts
+# Move Firebase access behind services
 
 ## Summary
 
-This PR defines the Firebase data model foundation for the mobile app and the future owner/admin web app. It centralizes collection names, documents the canonical entities, adds roles and permissions, introduces app-owned analytics events, and prepares Firestore rules for the next phase of structured content and admin management.
+This PR pulls Firebase-backed app operations out of `firebaseConfig.js` and behind domain service modules so screens no longer import raw Firebase helper APIs from the bootstrap file.
 
 ## What Changed
 
-- Added `firebaseModels.js` as the shared source of truth for:
-  - Firebase collection names
-  - document constants and subcollections
-  - model field contracts
-  - roles and permissions
-  - analytics event names and event-specific collections
-- Added `FIREBASE_MODELS.md` with the human-readable model reference.
-- Added canonical models for:
-  - `User`
-  - `Workout`
-  - `Program`
-  - `Exercise`
-  - `Recipe`
-  - `Subscription`
-  - `Progress`
-  - `WorkoutSession`
-  - `CommunityPost`
-  - `CommunityAttachment`
-  - `Comment`
-  - `Notification`
-  - `MediaAsset`
-  - `Report`
-  - `ModerationAction`
-  - `CoachAssignment`
-  - `AdminAuditLog`
-  - `AppSettings`
-  - `AppNavigation`
-  - `HomeContent`
-  - `AnalyticsEvent`
-- Added subscription access fields for content models:
-  - `freeTierAccessible`
-  - `subscriptionRequired`
-  - `requiredSubscriptionTier`
-  - `visibility`
-- Added role definitions for:
-  - `owner`
-  - `admin`
-  - `coach`
-  - `user`
-  - `betaTester`
-  - `ambassador`
-- Added app-owned analytics event contracts for:
-  - `user_registered`
-  - `subscription_started`
-  - `workout_started`
-  - `workout_completed`
-  - `program_opened`
-  - `community_post_created`
-- Added `trackAnalyticsEvent(...)`, which writes to the normalized `analyticsEvents` ledger and mirrors into event-specific collections atomically.
-- Updated existing Firebase calls in `firebaseConfig.js` to use centralized collection/document constants.
-- Updated program access logic so `freeTierAccessible` is honored while preserving existing `subscriptionRequired` behavior.
-- Expanded Firestore rules scaffolding for canonical content, admin, moderation, reporting, media, analytics, coach assignment, progress, and workout session collections.
+- Added service modules for auth, programs/content, users, workouts/progress, community chat, and media uploads.
+- Reduced `firebaseConfig.js` to Firebase initialization exports only: `app`, `auth`, `db`, `storage`, config status, and Google client IDs.
+- Updated `App.js` to call service-layer functions instead of Firebase config helpers.
+- Kept the global content cache and manifest flow intact, now routed through `programService`.
+- Moved community message paging, realtime new-message subscription, reactions, likes, and sending into `communityService`.
+- Moved Storage upload handling into `mediaService`, preserving cancellable uploads for the queue.
+- Added a small global chat UX fix so the chat snaps to the newest messages and message input after loading or receiving new messages.
+- Updated coworker workflow docs to point new synced-data helpers at `services/*Service.ts`.
 
-## Data Model Notes
+## Testing
 
-- `appContent/sanctuary` remains the current compatibility path for mobile content.
-- Canonical collections like `programs`, `recipes`, `appSettings`, `homeContent`, and `mediaAssets` are documented as the admin-app direction.
-- `users/{uid}.role` is intended for app/admin display and filtering.
-- Firebase Auth custom claims remain the trusted source for Firestore permission checks.
-- Analytics are intentionally app-owned so Google Analytics, Meta, and other tools can be added later without losing our internal event history.
-
-## Security Notes
-
-- Public content-style collections are readable.
-- Owner/admin users control canonical content, settings, moderation, subscriptions, and audit/admin areas.
-- Users can create their own analytics events, progress/session records, community posts, comments, reports, and media metadata within scoped rules.
-- Admin audit logs are append-only from the app rules perspective.
-
-## Validation
-
-```powershell
-node -e "const fs=require('fs'); const parser=require('@babel/parser'); for (const file of ['App.js','firebaseConfig.js','firebaseModels.js']) { parser.parse(fs.readFileSync(file,'utf8'), {sourceType:'module', plugins:['jsx']}); console.log(file + ' parsed'); }"
-```
-
-Result:
-
-- `App.js parsed`
-- `firebaseConfig.js parsed`
-- `firebaseModels.js parsed`
+- Babel transpilation passed for:
+  - `App.js`
+  - `firebaseConfig.js`
+  - all files in `services/`
+- Started emulator/build validation, then intentionally cleaned up the interrupted Expo/Gradle processes.
 
 ## Reviewer Focus
 
-- `firebaseModels.js`: canonical model names, roles, permissions, analytics events, and field contracts.
-- `FIREBASE_MODELS.md`: owner/admin-facing model documentation and current compatibility mapping.
-- `firestore.rules`: rule scaffolding for the newly modeled collections.
-- `firebaseConfig.js`: centralized Firebase constants and analytics writer.
-- `App.js`: `freeTierAccessible` program access behavior.
+- `services/*Service.ts`: domain boundaries and Firestore/Storage path ownership.
+- `firebaseConfig.js`: bootstrap-only shape.
+- `App.js`: changed imports and global chat scroll behavior.
+- `docs/coworker-firebase-workflow.md`: updated guidance for future synced data.

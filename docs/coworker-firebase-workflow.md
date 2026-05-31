@@ -84,7 +84,7 @@ When adding a new global content type:
 
 1. Add fallback data to `appContent.js`.
 2. Add it to the seed script subcollection list in `scripts/seedAppContent.js`.
-3. Add fetch/normalization support in `firebaseConfig.js` and `App.js`.
+3. Add fetch/normalization support in the appropriate `services/*Service.ts` file and `App.js`.
 4. Add a short note to `docs/firebase-data-model.md`.
 5. Reseed Firebase.
 
@@ -107,7 +107,7 @@ users/{uid}/preferences/main
 users/{uid}/savedContent/{contentId}
 ```
 
-Add helper functions in `firebaseConfig.js`. Keep app screens unaware of raw Firestore paths when possible.
+Add helper functions in the appropriate `services/*Service.ts` file. Keep app screens unaware of raw Firestore paths when possible.
 
 ## 6. Chat And Live Data
 

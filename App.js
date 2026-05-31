@@ -23,29 +23,20 @@ import Svg, { Circle, Ellipse, G, Line, Path } from "react-native-svg";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from "@react-native-google-signin/google-signin";
+import { googleClientIds, firebaseConfigStatus, hasFirebaseConfig } from "./firebaseConfig";
+import { loginWithEmail, loginWithGoogleIdToken, logout, registerWithEmail } from "./services/authService";
 import {
-  googleClientIds,
-  firebaseConfigStatus,
-  hasFirebaseConfig,
-  loginWithEmail,
-  loginWithGoogleIdToken,
-  logout,
-  registerWithEmail,
-  sendCommunityMessage,
-  fetchAppContent,
-  fetchAppContentManifest,
-  getCommunityMessagesCount,
-  fetchLatestCommunityMessages,
   fetchCommunityMessagesBefore,
-  subscribeToNewCommunityMessages,
-  getUserActivePrograms,
-  getUserSubscription,
-  getUserProfile,
-  saveUserProfile,
-  uploadFileAsync,
-  toggleMessageReaction,
+  fetchLatestCommunityMessages,
+  getCommunityMessagesCount,
+  sendCommunityMessage,
   subscribeToMessageReactions,
-} from "./firebaseConfig";
+  subscribeToNewCommunityMessages,
+  toggleMessageReaction,
+} from "./services/communityService";
+import { uploadFileAsync } from "./services/mediaService";
+import { fetchAppContent, fetchAppContentManifest, getUserActivePrograms } from "./services/programService";
+import { getUserProfile, getUserSubscription, saveUserProfile } from "./services/userService";
 import DEFAULT_APP_CONTENT from "./appContent";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -654,6 +645,7 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [profile, setProfile] = useState({ name: "Ratnica", goal: "Disciplina. Fokus. Sloboda.", email: "", age: "", level: "Pocetnica" });
   const [subscriptionRecords, setSubscriptionRecords] = useState([]);
+  const appScrollRef = useRef(null);
   const content = useSyncedAppContent();
 
   const googleConfigured = Object.values(googleClientIds).some(Boolean);
@@ -843,7 +835,7 @@ export default function App() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.paper} />
       <View style={styles.app}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <ScrollView ref={appScrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           {screen === "home" && <HomeScreen go={navigate} openMenu={() => setDrawerOpen(true)} profile={profile} content={content} />}
           {screen === "training" && (
             <TrainingScreen tab={trainingTab} setTab={setTrainingTab} goBack={goBack} openMenu={() => setDrawerOpen(true)} content={content} />
@@ -860,6 +852,7 @@ export default function App() {
               profile={profile}
               uploadQueue={uploadQueue}
               content={content}
+              onScrollToBottom={(animated = true) => appScrollRef.current?.scrollToEnd?.({ animated })}
             />
           )}
           {screen === "program" && <ProgramDetailScreen program={screenParams} goBack={goBack} content={content} subscriptions={subscriptionRecords} />}
@@ -1059,7 +1052,7 @@ function hasActiveSubscription(records = [], requiredTier = "") {
   });
 }
 
-function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session, profile, uploadQueue, content = FALLBACK_CONTENT }) {
+function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session, profile, uploadQueue, content = FALLBACK_CONTENT, onScrollToBottom }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(true);
   const [chatError, setChatError] = useState("");
@@ -1077,6 +1070,8 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
   const [reactionPicker, setReactionPicker] = useState({ messageId: null, expanded: false });
   const [imageViewer, setImageViewer] = useState({ visible: false, images: [], index: 0 });
   const lastReactionTapRef = useRef({ messageId: null, timestamp: 0 });
+  const chatSnapTimerRef = useRef(null);
+  const preserveScrollForOlderMessagesRef = useRef(false);
   const images = content.images || image;
   const contentPotions = content.potions || potions;
   const contentPosts = content.communityPosts || communityPosts;
@@ -1093,6 +1088,14 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
 
   function closeImageViewer() {
     setImageViewer({ visible: false, images: [], index: 0 });
+  }
+
+  function snapChatToBottom(animated = true, delay = 80) {
+    if (!isChat || typeof onScrollToBottom !== "function") return;
+    if (chatSnapTimerRef.current) clearTimeout(chatSnapTimerRef.current);
+    chatSnapTimerRef.current = setTimeout(() => {
+      requestAnimationFrame(() => onScrollToBottom(animated));
+    }, delay);
   }
 
   useEffect(() => {
@@ -1167,6 +1170,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
         setLastVisible(last);
         setHasMore(!!last && total > messages.length);
         setChatError("");
+        snapChatToBottom(false, 120);
       } catch (error) {
         setChatError(error.message);
       } finally {
@@ -1180,6 +1184,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
             if (current.some((m) => m.id === newMsg.id)) return current;
             return [...current, newMsg];
           });
+          snapChatToBottom(true, 120);
         },
         (err) => {
           console.log("subscribe new message error", err);
@@ -1194,8 +1199,18 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
       setChatMessages([]);
       setLastVisible(null);
       setHasMore(false);
+      if (chatSnapTimerRef.current) clearTimeout(chatSnapTimerRef.current);
     };
   }, [isChat]);
+
+  useEffect(() => {
+    if (!isChat || chatLoading || chatError || chatMessages.length === 0) return;
+    if (preserveScrollForOlderMessagesRef.current) {
+      preserveScrollForOlderMessagesRef.current = false;
+      return;
+    }
+    snapChatToBottom(false, 90);
+  }, [isChat, chatLoading, chatError, chatMessageIdsKey]);
 
   useEffect(() => {
     if (!isChat || chatMessageIds.length === 0) return undefined;
@@ -1229,6 +1244,7 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
     try {
       const { messages: older, lastVisible: newLast, hasMore: more } = await fetchCommunityMessagesBefore(lastVisible, 20);
       if (older && older.length) {
+        preserveScrollForOlderMessagesRef.current = true;
         setChatMessages((current) => [...older, ...current]);
         setMessageReactions((current) => {
           const nextReactions = { ...current };
@@ -1654,7 +1670,10 @@ function CommunityScreen({ tab, setTab, message, setMessage, goBack, go, session
               <TextInput
                 value={localMessage}
                 onChangeText={setLocalMessage}
-                onFocus={closeReactionPicker}
+                onFocus={() => {
+                  closeReactionPicker();
+                  snapChatToBottom(true, 160);
+                }}
                 placeholder="Napisi poruku..."
                 placeholderTextColor={colors.muted}
                 style={styles.messageInput}
