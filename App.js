@@ -104,6 +104,12 @@ function normalizePrograms(programs, images) {
   }));
 }
 
+function requiresPaidAccess(item = {}) {
+  if (item.freeTierAccessible === true) return false;
+  if (item.freeTierAccessible === false) return true;
+  return item.subscriptionRequired !== false;
+}
+
 function normalizePotions(items, images) {
   return arrayWithFallback(items, DEFAULT_APP_CONTENT.potions).map((potion) => ({
     ...potion,
@@ -2137,7 +2143,7 @@ function ScreenHeader({ title, right, compact, onBack, onRight }) {
 function ProgramDetailScreen({ program, goBack, content = FALLBACK_CONTENT, subscriptions = [] }) {
   const prog = program || {};
   const images = content.images || image;
-  const requiresSubscription = prog.subscriptionRequired !== false;
+  const requiresSubscription = requiresPaidAccess(prog);
   const requiredTier = prog.requiredSubscriptionTier || prog.subscriptionTier || "";
   const hasAccess = !requiresSubscription || hasActiveSubscription(subscriptions, requiredTier);
 
