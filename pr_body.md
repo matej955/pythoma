@@ -1,67 +1,31 @@
-# Refactor Firebase content and sync model
+# Move Firebase access behind services
 
 ## Summary
 
-This refactor moves global app content into a scalable Firebase-backed data model while keeping the mobile app fast, cache-first, and safe to use offline.
+This PR pulls Firebase-backed app operations out of `firebaseConfig.js` and behind domain service modules so screens no longer import raw Firebase helper APIs from the bootstrap file.
 
 ## What Changed
 
-- Added bundled fallback content in `appContent.js`.
-- Modeled global content in Firestore under `appContent/sanctuary` subcollections:
-  - `settings/main`
-  - `images`
-  - `programs`
-  - `potions`
-  - `navItems`
-  - `communityPosts`
-- Added cache-first app content loading with a 5-day cache lifespan.
-- Added lightweight Firebase manifest checks using `contentVersion`.
-- Added `sectionVersions` for future section-level content refreshes.
-- Added Firebase Admin seed tooling via `npm run seed:content`.
-- Added Firestore rules and Firebase project config.
-- Added user profile sync helpers under `users/{uid}/profile/main`.
-- Added coworker setup and Firebase workflow documentation.
-- Added `.env.example` for local environment setup.
+- Added service modules for auth, programs/content, users, workouts/progress, community chat, and media uploads.
+- Reduced `firebaseConfig.js` to Firebase initialization exports only: `app`, `auth`, `db`, `storage`, config status, and Google client IDs.
+- Updated `App.js` to call service-layer functions instead of Firebase config helpers.
+- Kept the global content cache and manifest flow intact, now routed through `programService`.
+- Moved community message paging, realtime new-message subscription, reactions, likes, and sending into `communityService`.
+- Moved Storage upload handling into `mediaService`, preserving cancellable uploads for the queue.
+- Added a small global chat UX fix so the chat snaps to the newest messages and message input after loading or receiving new messages.
+- Updated coworker workflow docs to point new synced-data helpers at `services/*Service.ts`.
 
-## Firebase / Security Notes
+## Testing
 
-- Service account JSON files are ignored and should live outside the repo.
-- Mobile app uses normal Firebase client config only.
-- Firestore rules were deployed to `pythoma-d784a`.
-- Global `appContent` is public read and admin-only write.
-- User data is scoped under `users/{uid}`.
-
-## How To Test
-
-```powershell
-npm install
-Copy-Item .env.example .env
-npm start
-```
-
-For Android:
-
-```powershell
-npm run android
-```
-
-To reseed global content after editing `appContent.js`:
-
-```powershell
-npm.cmd run seed:content
-```
-
-To deploy Firestore rules:
-
-```powershell
-firebase.cmd login
-npm.cmd run deploy:rules
-```
+- Babel transpilation passed for:
+  - `App.js`
+  - `firebaseConfig.js`
+  - all files in `services/`
+- Started emulator/build validation, then intentionally cleaned up the interrupted Expo/Gradle processes.
 
 ## Reviewer Focus
 
-- `App.js`: cache-first content loading and user profile save flow.
-- `firebaseConfig.js`: Firebase content/user helper APIs.
-- `scripts/seedAppContent.js`: modeled content seeding and version metadata.
-- `firestore.rules`: access control boundaries.
-- `docs/`: coworker workflow and Firebase data model.
+- `services/*Service.ts`: domain boundaries and Firestore/Storage path ownership.
+- `firebaseConfig.js`: bootstrap-only shape.
+- `App.js`: changed imports and global chat scroll behavior.
+- `docs/coworker-firebase-workflow.md`: updated guidance for future synced data.
